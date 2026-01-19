@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-01-19T18:15:00",
+  "project_name": "sri-amma-bhagavan",
+  "system": {
+    "os": "Darwin (macOS)",
+    "architecture": "arm64",
+    "user": "lei",
+    "hostname": "Mac"
+  },
+  "cli_tools": {
+    "git": {
+      "installed": true,
+      "version": "2.50.1",
+      "path": "/usr/bin/git"
+    },
+    "gh": {
+      "installed": true,
+      "version": "2.85.0",
+      "authenticated": false
+    },
+    "node": {
+      "installed": true,
+      "version": "20.12.2"
+    },
+    "npm": {
+      "installed": true,
+      "version": "10.5.0"
+    },
+    "pnpm": {
+      "installed": true,
+      "version": "10.28.1"
+    },
+    "bun": {
+      "installed": true,
+      "version": "latest",
+      "path": "~/.bun/bin/bun"
+    },
+    "supabase": {
+      "installed": true,
+      "version": "2.72.7",
+      "authenticated": false
+    },
+    "railway": {
+      "installed": true,
+      "version": "4.25.3",
+      "authenticated": false
+    },
+    "docker": {
+      "installed": false,
+      "note": "Manual installation required - run: brew install --cask docker"
+    },
+    "coderabbit": {
+      "installed": false,
+      "note": "Installation script returned 404 - check coderabbit.ai for updates"
+    }
+  },
+  "repository": {
+    "initialized": true,
+    "remote_url": null,
+    "branch": "main",
+    "initial_commit": true
+  },
+  "validation": {
+    "essential_complete": true,
+    "recommended_complete": false,
+    "ready_for_development": true
+  },
+  "pending_actions": [
+    "Authenticate GitHub CLI: gh auth login",
+    "Authenticate Supabase: supabase login",
+    "Authenticate Railway: railway login",
+    "Install Docker Desktop: brew install --cask docker",
+    "Create GitHub remote repository: gh repo create"
+  ]
+}

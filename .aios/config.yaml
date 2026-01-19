@@ -1,0 +1,18 @@
+# AIOS Project Configuration
+version: 2.1.0
+project:
+  name: sri-amma-bhagavan
+  type: brownfield
+  created: 2025-01-15
+
+environment:
+  bootstrapped: true
+  bootstrap_date: 2026-01-19T18:15:00
+
+workflow:
+  current: brownfield-fullstack
+  phase: development
+
+settings:
+  auto_update_status: true
+  quality_gates_enabled: true
