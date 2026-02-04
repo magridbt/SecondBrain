@@ -1,0 +1,53 @@
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { semanticSearch } from '@/lib/semantic-search'
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { topic, language = 'pt', limit = 10 } = await request.json()
+
+    if (!topic || typeof topic !== 'string') {
+      return NextResponse.json({ error: 'Topic is required' }, { status: 400 })
+    }
+
+    // Search for teachings using semantic search (70% threshold for quality)
+    const results = await semanticSearch(
+      topic,
+      Math.min(limit, 20), // Cap at 20 results
+      0.7,
+      language
+    )
+
+    // If no results in specified language, try all languages
+    let finalResults = results
+    if (finalResults.length === 0) {
+      finalResults = await semanticSearch(topic, Math.min(limit, 20), 0.7, null)
+    }
+
+    // Format results for the frontend
+    const formattedResults = finalResults.map((result) => ({
+      id: result.id,
+      content: result.content,
+      documentId: result.documentId,
+      documentName: result.documentName,
+      sourceName: result.sourceName,
+      similarity: result.similarity,
+      language: result.metadata?.language || 'en',
+    }))
+
+    return NextResponse.json({ results: formattedResults })
+  } catch (error) {
+    console.error('Search error:', error)
+    return NextResponse.json(
+      { error: 'Failed to search teachings' },
+      { status: 500 }
+    )
+  }
+}

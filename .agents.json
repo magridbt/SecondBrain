@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "framework": "synkra-aios",
+  "agents": {
+    "AIOS:agents:dev": {
+      "name": "Dev",
+      "path": ".claude/commands/AIOS/agents/dev.md",
+      "title": "Developer Agent",
+      "description": "Activate Dev Agent for code implementation, debugging, and technical development",
+      "icon": "👨‍💻"
+    },
+    "AIOS:agents:pm": {
+      "name": "PM",
+      "path": ".claude/commands/AIOS/agents/pm.md",
+      "title": "Product Manager Agent",
+      "description": "Activate Morgan for product management, PRD creation, and strategy",
+      "icon": "📋"
+    },
+    "AIOS:agents:po": {
+      "name": "PO",
+      "path": ".claude/commands/AIOS/agents/po.md",
+      "title": "Product Owner Agent",
+      "description": "Activate Product Owner for backlog management and prioritization",
+      "icon": "🎯"
+    },
+    "AIOS:agents:architect": {
+      "name": "Architect",
+      "path": ".claude/commands/AIOS/agents/architect.md",
+      "title": "Architect Agent",
+      "description": "Activate Architect for system design and technical architecture decisions",
+      "icon": "🏗️"
+    },
+    "AIOS:agents:qa": {
+      "name": "QA",
+      "path": ".claude/commands/AIOS/agents/qa.md",
+      "title": "QA Agent",
+      "description": "Activate QA for testing strategies and quality assurance",
+      "icon": "🧪"
+    },
+    "AIOS:agents:sm": {
+      "name": "SM",
+      "path": ".claude/commands/AIOS/agents/sm.md",
+      "title": "Scrum Master Agent",
+      "description": "Activate Scrum Master for agile management and sprint planning",
+      "icon": "⚙️"
+    },
+    "AIOS:agents:analyst": {
+      "name": "Analyst",
+      "path": ".claude/commands/AIOS/agents/analyst.md",
+      "title": "Analyst Agent",
+      "description": "Activate Analyst for business analysis and market research",
+      "icon": "📊"
+    },
+    "AIOS:agents:aios-master": {
+      "name": "AIOS Master",
+      "path": ".claude/commands/AIOS/agents/aios-master.md",
+      "title": "AIOS Master Orchestrator",
+      "description": "Activate Orion for framework orchestration and complex workflows",
+      "icon": "👑"
+    }
+  }
+}

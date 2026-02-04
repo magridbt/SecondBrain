@@ -1,0 +1,17 @@
+# Claude Code Configuration for AIOS Agents
+
+[commands]
+# AIOS Agent Activation Commands
+dev = "AIOS:agents:dev - Activate Dev Agent for code implementation"
+pm = "AIOS:agents:pm - Activate Product Manager for strategy"
+po = "AIOS:agents:po - Activate Product Owner for prioritization"
+architect = "AIOS:agents:architect - Activate Architect for system design"
+qa = "AIOS:agents:qa - Activate QA Agent for testing"
+sm = "AIOS:agents:sm - Activate Scrum Master for agile management"
+analyst = "AIOS:agents:analyst - Activate Analyst for research"
+aios-master = "AIOS:agents:aios-master - Activate AIOS Master Orchestrator"
+
+[settings]
+autocomplete-prefix = "/"
+agent-path = ".claude/commands/AIOS/agents"
+framework = "synkra-aios"

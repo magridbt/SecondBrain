@@ -1,0 +1,122 @@
+{
+  "version": "1.0.0",
+  "skills": [
+    {
+      "id": "aios-dev",
+      "name": "AIOS:agents:dev",
+      "description": "Activate Dev Agent for code implementation",
+      "category": "aios",
+      "command": "aios-agent-dev",
+      "keywords": ["dev", "developer", "code", "aios"],
+      "action": {
+        "type": "agent",
+        "agentId": "dev",
+        "agentFile": ".claude/commands/AIOS/dev.md"
+      }
+    },
+    {
+      "id": "aios-pm",
+      "name": "AIOS:agents:pm",
+      "description": "Activate PM (Morgan) for product management",
+      "category": "aios",
+      "command": "aios-agent-pm",
+      "keywords": ["pm", "product", "manager", "morgan", "aios"],
+      "action": {
+        "type": "agent",
+        "agentId": "pm",
+        "agentFile": ".claude/commands/AIOS/pm.md"
+      }
+    },
+    {
+      "id": "aios-po",
+      "name": "AIOS:agents:po",
+      "description": "Activate PO (Pax) for product ownership",
+      "category": "aios",
+      "command": "aios-agent-po",
+      "keywords": ["po", "owner", "pax", "aios"],
+      "action": {
+        "type": "agent",
+        "agentId": "po",
+        "agentFile": ".claude/commands/AIOS/po.md"
+      }
+    },
+    {
+      "id": "aios-architect",
+      "name": "AIOS:agents:architect",
+      "description": "Activate Architect (Aria) for system design",
+      "category": "aios",
+      "command": "aios-agent-architect",
+      "keywords": ["architect", "aria", "design", "system", "aios"],
+      "action": {
+        "type": "agent",
+        "agentId": "architect",
+        "agentFile": ".claude/commands/AIOS/architect.md"
+      }
+    },
+    {
+      "id": "aios-qa",
+      "name": "AIOS:agents:qa",
+      "description": "Activate QA Agent for testing",
+      "category": "aios",
+      "command": "aios-agent-qa",
+      "keywords": ["qa", "test", "quality", "aios"],
+      "action": {
+        "type": "agent",
+        "agentId": "qa",
+        "agentFile": ".claude/commands/AIOS/qa.md"
+      }
+    },
+    {
+      "id": "aios-sm",
+      "name": "AIOS:agents:sm",
+      "description": "Activate SM (River) for scrum management",
+      "category": "aios",
+      "command": "aios-agent-sm",
+      "keywords": ["sm", "scrum", "river", "agile", "aios"],
+      "action": {
+        "type": "agent",
+        "agentId": "sm",
+        "agentFile": ".claude/commands/AIOS/sm.md"
+      }
+    },
+    {
+      "id": "aios-analyst",
+      "name": "AIOS:agents:analyst",
+      "description": "Activate Analyst (Atlas) for research",
+      "category": "aios",
+      "command": "aios-agent-analyst",
+      "keywords": ["analyst", "atlas", "research", "analysis", "aios"],
+      "action": {
+        "type": "agent",
+        "agentId": "analyst",
+        "agentFile": ".claude/commands/AIOS/analyst.md"
+      }
+    },
+    {
+      "id": "aios-devops",
+      "name": "AIOS:agents:devops",
+      "description": "Activate DevOps (Gage) for infrastructure & operations",
+      "category": "aios",
+      "command": "aios-agent-devops",
+      "keywords": ["devops", "gage", "infrastructure", "deployment", "mcp", "aios"],
+      "action": {
+        "type": "agent",
+        "agentId": "devops",
+        "agentFile": ".claude/commands/AIOS/devops.md"
+      }
+    },
+    {
+      "id": "aios-master",
+      "name": "AIOS:agents:aios-master",
+      "description": "Activate AIOS Master (Orion) for orchestration",
+      "category": "aios",
+      "command": "aios-agent-master",
+      "keywords": ["master", "orion", "aios", "orchestration", "framework"],
+      "action": {
+        "type": "agent",
+        "agentId": "aios-master",
+        "agentFile": ".claude/commands/AIOS/master.md"
+      }
+    }
+  ]
+}
