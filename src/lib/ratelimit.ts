@@ -31,6 +31,22 @@ export const generalRateLimiter = new Ratelimit({
   prefix: 'ratelimit:general',
 })
 
+// Rate limiter for admin API: 50 requests per minute per user
+export const adminRateLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(50, '1 m'),
+  analytics: true,
+  prefix: 'ratelimit:admin',
+})
+
+// Rate limiter for authentication: 10 attempts per minute per IP
+export const authRateLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '1 m'),
+  analytics: true,
+  prefix: 'ratelimit:auth',
+})
+
 // Helper function to get rate limit headers
 export function getRateLimitHeaders(result: { limit: number; remaining: number; reset: number }) {
   return {

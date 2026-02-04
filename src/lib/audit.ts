@@ -11,6 +11,7 @@ export type AuditAction =
   | 'logout'
   | 'view_document'
   | 'admin_action'
+  | 'update_system_file'
 
 export type EntityType =
   | 'conversation'
@@ -18,6 +19,7 @@ export type EntityType =
   | 'document'
   | 'user'
   | 'source'
+  | 'system'
 
 export interface AuditLogData {
   userId: string
