@@ -67,6 +67,12 @@ export default function Sidebar({ user, profile }: SidebarProps) {
       icon: MessageSquare,
       active: pathname.startsWith('/app/chat'),
     },
+    {
+      name: 'Daily Teaching',
+      href: '/app/daily-teaching',
+      icon: Sparkles,
+      active: pathname.startsWith('/app/daily-teaching'),
+    },
   ]
 
   const adminItems = [
