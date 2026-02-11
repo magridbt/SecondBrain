@@ -186,29 +186,34 @@ export async function POST(request: Request) {
         ? response.content[0].text
         : 'Desculpe, não consegui gerar uma resposta.'
 
-      // Append sources at the end of the answer
-      if (sources.length > 0) {
-        // Get unique sources (avoid duplicates)
-        const uniqueSources = sources.reduce((acc: any[], curr) => {
-          const exists = acc.find(s => s.documentName === curr.documentName)
-          if (!exists) acc.push(curr)
-          return acc
-        }, [])
+      // If Claude says "not found", clear all sources - show NOTHING else, only the message
+      if (answer.includes('Não encontrei') || answer.includes('não encontrei')) {
+        sources.length = 0 // Clear sources array
+      } else {
+        // Only append sources if Claude found relevant information
+        if (sources.length > 0) {
+          // Get unique sources (avoid duplicates)
+          const uniqueSources = sources.reduce((acc: any[], curr) => {
+            const exists = acc.find(s => s.documentName === curr.documentName)
+            if (!exists) acc.push(curr)
+            return acc
+          }, [])
 
-        answer += '\n\n---\n'
-        uniqueSources.forEach((source, index) => {
-          const dateInfo = source.date ? ` - ${source.date}` : ''
-          answer += `📖 Fonte: ${source.documentName}${dateInfo}\n`
+          answer += '\n\n---\n'
+          uniqueSources.forEach((source, index) => {
+            const dateInfo = source.date ? ` - ${source.date}` : ''
+            answer += `📖 Fonte: ${source.documentName}${dateInfo}\n`
 
-          // Add YouTube URL for video sources (Kalki Dharma Videos and Great Compassionate Light)
-          if (source.metadata?.youtube_url) {
-            const isVideoSource = source.sourceName?.toLowerCase().includes('kalki') ||
-                                  source.sourceName?.toLowerCase().includes('compassionate light')
-            if (isVideoSource) {
-              answer += `🎬 YouTube: ${source.metadata.youtube_url}\n`
+            // Add YouTube URL for video sources (Kalki Dharma Videos and Great Compassionate Light)
+            if (source.metadata?.youtube_url) {
+              const isVideoSource = source.sourceName?.toLowerCase().includes('kalki') ||
+                                    source.sourceName?.toLowerCase().includes('compassionate light')
+              if (isVideoSource) {
+                answer += `🎬 YouTube: ${source.metadata.youtube_url}\n`
+              }
             }
-          }
-        })
+          })
+        }
       }
     } else {
       // No documents found in Portuguese - DO NOT invent any teaching
