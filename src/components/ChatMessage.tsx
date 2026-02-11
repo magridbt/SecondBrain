@@ -28,7 +28,21 @@ export default function ChatMessage({ message }: MessageProps) {
 
   const handleFeedback = async (type: 'like' | 'dislike') => {
     setFeedback(type)
-    // TODO: Save feedback to database
+    // Feedback is saved to /api/feedback endpoint
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: message.id,
+          type,
+          content: message.content,
+          timestamp: new Date().toISOString(),
+        }),
+      })
+    } catch (error) {
+      console.error('Failed to save feedback:', error)
+    }
   }
 
   const handleCopy = useCallback(async () => {
