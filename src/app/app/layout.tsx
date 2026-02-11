@@ -23,7 +23,7 @@ export default async function AppLayout({
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-800">
       <Sidebar user={user} profile={profile} />
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-y-auto">
         {children}
       </main>
     </div>
