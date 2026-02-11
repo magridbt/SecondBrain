@@ -120,11 +120,11 @@ export async function POST(request: Request) {
     }).catch(err => console.error('Audit log error:', err))
 
     // Search for relevant chunks using semantic search (embeddings)
-    // Search ONLY in Portuguese documents
+    // Search ONLY in Portuguese documents with high relevance threshold (60%)
     let searchResults: SearchResult[] = []
     try {
-      searchResults = await semanticSearch(message, 5, 0.3, LANGUAGE)
-      console.log(`Semantic search found ${searchResults.length} results (Portuguese only)`)
+      searchResults = await semanticSearch(message, 5, 0.6, LANGUAGE)
+      console.log(`Semantic search found ${searchResults.length} results (Portuguese only, 60% similarity threshold)`)
     } catch (searchError) {
       console.error('Semantic search failed:', searchError)
       // Continue with empty results - will trigger the "no documents" response
