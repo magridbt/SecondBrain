@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -134,7 +135,7 @@ export default function Sidebar({ user, profile }: SidebarProps) {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center overflow-hidden">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                <Image src={avatarUrl} alt="Avatar" width={40} height={40} className="w-full h-full object-cover" />
               ) : (
                 <Sparkles className="text-white" size={20} />
               )}

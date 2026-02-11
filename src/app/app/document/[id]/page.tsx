@@ -36,6 +36,7 @@ export default function DocumentViewerPage() {
 
   useEffect(() => {
     loadDocument()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId])
 
   useEffect(() => {

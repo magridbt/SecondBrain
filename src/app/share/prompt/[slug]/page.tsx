@@ -81,6 +81,7 @@ export default function SharedPromptPage() {
     if (slug) {
       loadPrompt()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug])
 
   const loadPrompt = async () => {

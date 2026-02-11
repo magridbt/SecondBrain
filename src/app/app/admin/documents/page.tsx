@@ -139,6 +139,7 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Auto-refresh when there are documents processing or pending
@@ -154,6 +155,7 @@ export default function DocumentsPage() {
 
       return () => clearInterval(interval)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documents])
 
   const loadData = async () => {

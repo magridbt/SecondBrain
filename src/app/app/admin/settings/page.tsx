@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Settings, Plus, Edit2, Trash2, Save, X, Loader2, Upload, Sparkles } from 'lucide-react'
@@ -35,6 +36,7 @@ export default function SettingsPage() {
   useEffect(() => {
     loadSources()
     loadBrandingSettings()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadBrandingSettings = async () => {
@@ -186,7 +188,7 @@ export default function SettingsPage() {
               <div className="relative group">
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    <Image src={avatarUrl} alt="Avatar" width={96} height={96} className="w-full h-full object-cover" />
                   ) : (
                     <Sparkles className="text-white" size={36} />
                   )}
