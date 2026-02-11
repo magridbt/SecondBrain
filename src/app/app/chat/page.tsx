@@ -81,7 +81,7 @@ export default function ChatPage() {
 
   const deleteConversation = async (convId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Are you sure you want to delete this conversation?')) return
+    if (!confirm('Tem certeza que quer deletar esta conversa?')) return
 
     try {
       await fetch(`/api/conversations?id=${convId}`, { method: 'DELETE' })
@@ -145,7 +145,7 @@ export default function ChatPage() {
       const errorMessage: Message = {
         id: Date.now().toString() + '-error',
         role: 'assistant',
-        content: 'Sorry, an error occurred. Please try again.',
+        content: 'Desculpe, ocorreu um erro. Tente novamente.',
         created_at: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, errorMessage])
@@ -155,10 +155,10 @@ export default function ChatPage() {
   }
 
   const suggestedQuestions = [
-    'What is Deeksha and how does it work?',
-    'How can I find inner peace?',
-    'What is the importance of gratitude?',
-    'How to deal with suffering?',
+    'O que é Deeksha e como funciona?',
+    'Como posso encontrar paz interior?',
+    'Qual a importância da gratidão?',
+    'Como lidar com o sofrimento?',
   ]
 
   const formatDate = (dateStr: string) => {
@@ -166,10 +166,10 @@ export default function ChatPage() {
     const now = new Date()
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
 
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 7) return `${diffDays} days ago`
-    return date.toLocaleDateString('en-US')
+    if (diffDays === 0) return 'Hoje'
+    if (diffDays === 1) return 'Ontem'
+    if (diffDays < 7) return `${diffDays} dias atrás`
+    return date.toLocaleDateString('pt-BR')
   }
 
   return (
@@ -187,14 +187,14 @@ export default function ChatPage() {
               className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg transition shadow-sm"
             >
               <Plus size={18} />
-              <span className="font-medium">New chat</span>
+              <span className="font-medium">Nova conversa</span>
             </button>
           </div>
 
           {/* Conversations List */}
           <div className="flex-1 overflow-y-auto px-3 py-3">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 px-2">
-              History
+              Histórico
             </p>
             {loadingConversations ? (
               <div className="flex justify-center py-4">
@@ -202,7 +202,7 @@ export default function ChatPage() {
               </div>
             ) : conversations.length === 0 ? (
               <div className="text-center py-8 text-gray-400 text-sm">
-                No conversations yet
+                Nenhuma conversa ainda
               </div>
             ) : (
               <div className="space-y-1">
@@ -226,7 +226,7 @@ export default function ChatPage() {
                     <button
                       onClick={(e) => deleteConversation(conv.id, e)}
                       className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition"
-                      title="Delete conversation"
+                      title="Deletar conversa"
                     >
                       <Trash2 size={14} className="text-gray-400 hover:text-red-500" />
                     </button>
@@ -253,8 +253,8 @@ export default function ChatPage() {
               <Sparkles className="text-white" size={16} />
             </div>
             <div>
-              <h1 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Sri AB Teachings</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Teachings of Sri Amma Bhagavan</p>
+              <h1 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Ensinamentos Sri AB</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Ensinamentos de Sri Amma Bhagavan</p>
             </div>
           </div>
         </header>
@@ -270,8 +270,8 @@ export default function ChatPage() {
                 Namaste!
               </h2>
               <p className="text-gray-600 dark:text-gray-300 mb-8">
-                I am Sri AB Teachings, your guide to the teachings of Sri Amma Bhagavan.
-                Ask your question and I will search for wisdom in the original teachings.
+                Sou Ensinamentos Sri AB, seu guia para os ensinamentos de Sri Amma Bhagavan.
+                Faça sua pergunta e buscarei sabedoria nos ensinamentos originais.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {suggestedQuestions.map((question, i) => (
@@ -297,7 +297,7 @@ export default function ChatPage() {
                     <span className="typing-dot w-2 h-2 bg-green-500 rounded-full"></span>
                     <span className="typing-dot w-2 h-2 bg-green-500 rounded-full"></span>
                   </div>
-                  <span className="text-sm">Searching the teachings...</span>
+                  <span className="text-sm">Buscando nos ensinamentos...</span>
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -313,7 +313,7 @@ export default function ChatPage() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask your question about the teachings..."
+                placeholder="Faça sua pergunta sobre os ensinamentos..."
                 className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition placeholder-gray-400"
                 disabled={loading}
               />
@@ -330,7 +330,7 @@ export default function ChatPage() {
               </button>
             </div>
             <p className="text-xs text-gray-400 text-center mt-2">
-              Answers are based on the original teachings of Sri Amma Bhagavan
+              As respostas são baseadas nos ensinamentos originais de Sri Amma Bhagavan
             </p>
           </form>
         </div>
