@@ -48,6 +48,11 @@ coverage/
 
 # Environment & Secrets (AIOS)
 .env.*.local
+
+# AIOS Framework (separate repository)
+# aios-core/ is managed separately and should not be committed with SecondBrain
+aios-core/
+aios-core.tar.gz
 *.key
 
 # Dependencies (AIOS)
