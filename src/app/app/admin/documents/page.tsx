@@ -26,22 +26,22 @@ interface Source {
 }
 
 const PROGRAM_81000_YEARS = [
-  { value: 'ano1_2021', label: 'Year 1 - 2021' },
-  { value: 'ano2_2022', label: 'Year 2 - 2022' },
-  { value: 'ano3_2023', label: 'Year 3 - 2023' },
-  { value: 'ano4_2024', label: 'Year 4 - 2024' },
-  { value: 'ano5_2025', label: 'Year 5 - 2025' },
-  { value: 'ano6_2026', label: 'Year 6 - 2026' },
-  { value: 'ano7_2027', label: 'Year 7 - 2027' },
-  { value: 'ano8_2028', label: 'Year 8 - 2028' },
-  { value: 'ano9_2029', label: 'Year 9 - 2029' },
-  { value: 'ano10_2030', label: 'Year 10 - 2030' },
+  { value: 'ano1_2021', label: 'Ano 1 - 2021' },
+  { value: 'ano2_2022', label: 'Ano 2 - 2022' },
+  { value: 'ano3_2023', label: 'Ano 3 - 2023' },
+  { value: 'ano4_2024', label: 'Ano 4 - 2024' },
+  { value: 'ano5_2025', label: 'Ano 5 - 2025' },
+  { value: 'ano6_2026', label: 'Ano 6 - 2026' },
+  { value: 'ano7_2027', label: 'Ano 7 - 2027' },
+  { value: 'ano8_2028', label: 'Ano 8 - 2028' },
+  { value: 'ano9_2029', label: 'Ano 9 - 2029' },
+  { value: 'ano10_2030', label: 'Ano 10 - 2030' },
 ]
 
 const LANGUAGES = [
-  { value: 'pt', label: 'Portuguese' },
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Spanish' },
+  { value: 'pt', label: 'Português' },
+  { value: 'en', label: 'Inglês' },
+  { value: 'es', label: 'Espanhol' },
 ]
 
 export default function DocumentsPage() {
@@ -515,29 +515,29 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="min-h-screen overflow-y-auto p-6 max-w-6xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Documents</h1>
-        <p className="text-gray-500">Manage the system teachings</p>
+        <h1 className="text-2xl font-bold text-gray-800">Documentos</h1>
+        <p className="text-gray-500">Gerenciar os ensinamentos do sistema</p>
       </div>
 
       {/* Upload Section */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="font-semibold text-gray-800 mb-4">Document Upload</h2>
+        <h2 className="font-semibold text-gray-800 mb-4">Upload de Documento</h2>
 
         <div className="space-y-4">
           {/* Source Selection */}
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[250px]">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Teaching Source
+                Fonte de Ensino
               </label>
               <select
                 value={selectedSource}
                 onChange={(e) => handleSourceChange(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
               >
-                <option value="">Select source...</option>
+                <option value="">Selecione a fonte...</option>
                 {sources.map((source) => (
                   <option key={source.id} value={source.id}>
                     {source.name}
@@ -559,7 +559,7 @@ export default function DocumentsPage() {
                   onChange={(e) => setSelectedYear(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none bg-white"
                 >
-                  <option value="">Select year...</option>
+                  <option value="">Selecione o ano...</option>
                   {PROGRAM_81000_YEARS.map((year) => (
                     <option key={year.value} value={year.value}>
                       {year.label}
