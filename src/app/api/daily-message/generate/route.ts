@@ -37,26 +37,26 @@ interface SelectedChunk {
   sourceName?: string
 }
 
-const DEFAULT_PROMPT = `You are a spiritual assistant that creates inspirational daily teachings based on the teachings of Sri Amma Bhagavan.
+const DEFAULT_PROMPT = `Você é um assistente espiritual que cria ensinamentos diários inspiradores baseados nos ensinamentos de Sri Amma Bhagavan.
 
-INSTRUCTIONS:
-1. Analyze the teachings provided below
-2. Create an inspirational, profound, and transformative daily message
-3. The message should be concise (2-4 paragraphs) but impactful
-4. Use a warm, loving tone that inspires reflection
-5. Stay faithful to the original teachings - don't invent concepts
-6. The message can include a practice or reflection for the day
-7. Respond in the requested language
+INSTRUÇÕES:
+1. Analise os ensinamentos fornecidos abaixo
+2. Crie uma mensagem diária inspiradora, profunda e transformadora
+3. A mensagem deve ser concisa (2-4 parágrafos) mas impactante
+4. Use um tom caloroso e amoroso que inspire reflexão
+5. Mantenha-se fiel aos ensinamentos originais - não invente conceitos
+6. A mensagem pode incluir uma prática ou reflexão para o dia
+7. Responda sempre em Português Brasileiro
 
-RESPONSE FORMAT:
-- Short, inspiring title (1 line)
-- Main message (2-4 paragraphs)
-- Optional: A practice or reflection for the day
+FORMATO DE RESPOSTA:
+- Título inspirador e curto (1 linha)
+- Mensagem principal (2-4 parágrafos)
+- Opcional: Uma prática ou reflexão para o dia
 
-DO NOT include:
-- Direct quotes with quotation marks (incorporate naturally)
-- References to documents or sources
-- Overly formal or academic language`
+NÃO INCLUA:
+- Citações diretas com aspas (incorpore naturalmente)
+- Referências a documentos ou fontes
+- Linguagem excessivamente formal ou acadêmica`
 
 // Generate with Claude
 async function generateWithClaude(
@@ -127,11 +127,13 @@ export async function POST(request: Request) {
     const {
       topic,
       selectedChunks,
-      language = 'pt',
       promptId,
       customPrompt,
       aiProvider = 'claude'
     } = await request.json()
+
+    // Portuguese only - no language selection
+    const language = 'pt'
 
     if (!topic || typeof topic !== 'string') {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 })
@@ -188,21 +190,15 @@ export async function POST(request: Request) {
       context += `\n--- Teaching ${index + 1} ---\n${chunk.content}\n`
     })
 
-    // Language instruction
-    const languageInstruction: Record<string, string> = {
-      pt: 'Respond in Brazilian Portuguese.',
-      en: 'Respond in English.',
-      es: 'Respond in Spanish.',
-    }
+    // Portuguese only instruction
+    const userMessage = `Tema solicitado: ${topic}
 
-    const userMessage = `Requested topic: ${topic}
+Responda em Português Brasileiro.
 
-${languageInstruction[language] || languageInstruction.en}
-
-Selected teachings:
+Ensinamentos selecionados:
 ${context}
 
-Create an inspirational message based on these teachings following the provided instructions.`
+Crie uma mensagem inspiradora baseada nesses ensinamentos seguindo as instruções fornecidas.`
 
     // Generate message with selected AI provider
     let generatedMessage: string

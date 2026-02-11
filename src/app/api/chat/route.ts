@@ -9,33 +9,8 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 })
 
-// Detect language from text
-function detectLanguage(text: string): 'pt' | 'en' | 'es' {
-  const lowerText = text.toLowerCase()
-
-  // Portuguese indicators
-  const ptPatterns = /[áàâãéèêíìîóòôõúùûç]|(\b(que|como|por|para|uma?|não|sim|está|você|obrigad[oa]|sobre|quando|onde|porque|qual|quais|tudo|nada|muito|pouco|sempre|nunca|também|ainda|agora|depois|antes|entre|durante|através|segundo|conforme|embora|porém|contudo|entretanto|portanto|assim|então|logo|pois|ora|mas|nem|seja|quer|embora|enquanto|caso|senão|salvo|exceto|apesar)\b)/i
-  const ptMatches = (lowerText.match(ptPatterns) || []).length
-
-  // Spanish indicators
-  const esPatterns = /[áéíóúñ¿¡]|(\b(qué|cómo|cuál|cuáles|dónde|cuándo|quién|quiénes|por qué|porque|para|está|usted|ustedes|también|todavía|siempre|nunca|mucho|poco|ahora|después|antes|entre|durante|según|aunque|pero|sino|sin embargo|no obstante|por lo tanto|así que|entonces|pues|ya que|mientras|cuando|donde|como)\b)/i
-  const esMatches = (lowerText.match(esPatterns) || []).length
-
-  // English indicators
-  const enPatterns = /\b(the|and|is|are|was|were|been|being|have|has|had|do|does|did|will|would|could|should|may|might|must|shall|can|what|where|when|why|how|which|who|whom|whose|this|that|these|those|there|here|about|through|during|before|after|above|below|between|into|because|although|however|therefore|moreover|furthermore|nevertheless|meanwhile|otherwise|instead|rather|whether)\b/i
-  const enMatches = (lowerText.match(enPatterns) || []).length
-
-  // Calculate scores (normalize by text length)
-  const textLength = text.split(' ').length
-  const ptScore = ptMatches / textLength
-  const esScore = esMatches / textLength
-  const enScore = enMatches / textLength
-
-  // Determine language
-  if (ptScore > esScore && ptScore > enScore) return 'pt'
-  if (esScore > ptScore && esScore > enScore) return 'es'
-  return 'en' // Default to English
-}
+// Portuguese only - no language detection needed for now
+const LANGUAGE = 'pt'
 
 const SYSTEM_PROMPT = `You are a faithful assistant that transmits ONLY the authentic teachings of Sri Amma Bhagavan.
 
@@ -58,7 +33,7 @@ ABSOLUTE AND NON-NEGOTIABLE RULES:
 
 4. TONE AND LANGUAGE:
    - Use a serene, compassionate, and respectful tone
-   - Answer in the SAME language as the question (Portuguese, English, or Spanish)
+   - Answer ONLY in Portuguese
    - Be faithful to the original terminology used by Sri Amma Bhagavan
 
 5. FORMAT:
@@ -144,34 +119,12 @@ export async function POST(request: Request) {
       },
     }).catch(err => console.error('Audit log error:', err))
 
-    // Detect language from the user's message
-    const detectedLanguage = detectLanguage(message)
-    console.log(`Detected language: ${detectedLanguage}`)
-
-    // Language names for display
-    const languageNames: Record<string, Record<string, string>> = {
-      pt: { pt: 'Português', en: 'Inglês', es: 'Espanhol' },
-      en: { pt: 'Portuguese', en: 'English', es: 'Spanish' },
-      es: { pt: 'Portugués', en: 'Inglés', es: 'Español' },
-    }
-
     // Search for relevant chunks using semantic search (embeddings)
-    // Filter by the detected language for more precise results
+    // Search ONLY in Portuguese documents
     let searchResults: SearchResult[] = []
-    let resultsFromOtherLanguage = false
     try {
-      searchResults = await semanticSearch(message, 5, 0.3, detectedLanguage)
-      console.log(`Semantic search found ${searchResults.length} results (language: ${detectedLanguage})`)
-
-      // If no results in detected language, try searching all languages as fallback
-      if (searchResults.length === 0) {
-        console.log('No results in detected language, searching all languages...')
-        searchResults = await semanticSearch(message, 5, 0.3, null)
-        console.log(`Fallback search found ${searchResults.length} results (all languages)`)
-        if (searchResults.length > 0) {
-          resultsFromOtherLanguage = true
-        }
-      }
+      searchResults = await semanticSearch(message, 5, 0.3, LANGUAGE)
+      console.log(`Semantic search found ${searchResults.length} results (Portuguese only)`)
     } catch (searchError) {
       console.error('Semantic search failed:', searchError)
       // Continue with empty results - will trigger the "no documents" response
@@ -231,18 +184,7 @@ export async function POST(request: Request) {
 
       answer = response.content[0].type === 'text'
         ? response.content[0].text
-        : 'Sorry, I could not generate a response.'
-
-      // Add notice if results are from other languages
-      if (resultsFromOtherLanguage) {
-        const langNames = languageNames[detectedLanguage] || languageNames.en
-        const otherLangNotice: Record<string, string> = {
-          pt: `\n\n⚠️ **Nota:** Não encontrei ensinamentos em Português sobre este tema. Os resultados abaixo estão em outros idiomas.`,
-          en: `\n\n⚠️ **Note:** I didn't find teachings in English about this topic. The results below are in other languages.`,
-          es: `\n\n⚠️ **Nota:** No encontré enseñanzas en Español sobre este tema. Los resultados a continuación están en otros idiomas.`,
-        }
-        answer += otherLangNotice[detectedLanguage] || otherLangNotice.en
-      }
+        : 'Desculpe, não consegui gerar uma resposta.'
 
       // Append sources at the end of the answer
       if (sources.length > 0) {
@@ -256,12 +198,7 @@ export async function POST(request: Request) {
         answer += '\n\n---\n'
         uniqueSources.forEach((source, index) => {
           const dateInfo = source.date ? ` - ${source.date}` : ''
-          const langNames = languageNames[detectedLanguage] || languageNames.en
-          const sourceLang = source.language || 'en'
-          const langIndicator = resultsFromOtherLanguage && sourceLang !== detectedLanguage
-            ? ` [${langNames[sourceLang] || sourceLang.toUpperCase()}]`
-            : ''
-          answer += `📖 Source: ${source.documentName}${dateInfo}${langIndicator}\n`
+          answer += `📖 Fonte: ${source.documentName}${dateInfo}\n`
 
           // Add YouTube URL for video sources (Kalki Dharma Videos and Great Compassionate Light)
           if (source.metadata?.youtube_url) {
@@ -274,30 +211,12 @@ export async function POST(request: Request) {
         })
       }
     } else {
-      // No documents found - DO NOT invent any teaching
-      // Detect language from message to respond appropriately
-      const isPortuguese = /[áàâãéèêíìîóòôõúùûç]|(\b(que|como|por|para|uma?|não|sim|está|você)\b)/i.test(message)
-      const isSpanish = /[áéíóúñ¿¡]|(\b(qué|cómo|por|para|una?|está|usted)\b)/i.test(message) && !isPortuguese
+      // No documents found in Portuguese - DO NOT invent any teaching
+      answer = `Não encontrei ensinamentos específicos de Sri Amma Bhagavan sobre este tema nos documentos disponíveis.
 
-      if (isPortuguese) {
-        answer = `Não encontrei ensinamentos específicos de Sri Amma Bhagavan sobre este tema nos documentos disponíveis.
-
-Por favor, tente reformular sua pergunta ou aguarde enquanto mais ensinamentos são adicionados ao sistema.
+Por favor, tente reformular sua pergunta ou consulte os ensinamentos disponíveis diretamente.
 
 🙏 Namaste`
-      } else if (isSpanish) {
-        answer = `No encontré enseñanzas específicas de Sri Amma Bhagavan sobre este tema en los documentos disponibles.
-
-Por favor, intente reformular su pregunta o espere mientras se agregan más enseñanzas al sistema.
-
-🙏 Namaste`
-      } else {
-        answer = `I didn't find specific teachings from Sri Amma Bhagavan about this topic in the available documents.
-
-Please try rephrasing your question or wait while more teachings are being added to the system.
-
-🙏 Namaste`
-      }
     }
 
     // Save assistant message

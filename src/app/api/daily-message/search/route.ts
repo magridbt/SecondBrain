@@ -11,25 +11,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { topic, language = 'pt', limit = 10 } = await request.json()
+    const { topic, limit = 10 } = await request.json()
 
     if (!topic || typeof topic !== 'string') {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 })
     }
 
-    // Search for teachings using semantic search (70% threshold for quality)
-    const results = await semanticSearch(
+    // Search for teachings using semantic search in Portuguese only (70% threshold for quality)
+    const finalResults = await semanticSearch(
       topic,
       Math.min(limit, 20), // Cap at 20 results
       0.7,
-      language
+      'pt' // Portuguese only
     )
-
-    // If no results in specified language, try all languages
-    let finalResults = results
-    if (finalResults.length === 0) {
-      finalResults = await semanticSearch(topic, Math.min(limit, 20), 0.7, null)
-    }
 
     // Format results for the frontend
     const formattedResults = finalResults.map((result) => ({
