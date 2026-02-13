@@ -3,9 +3,11 @@
 import { User, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Copy, Check, BookOpen } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
+import DocumentModal from './DocumentModal'
 
 interface Source {
   documentName: string
+  documentId: string
   sourceName: string
   content: string
   score?: number
@@ -29,7 +31,19 @@ export default function ChatMessage({ message }: MessageProps) {
   const [showSources, setShowSources] = useState(false)
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null)
   const [copied, setCopied] = useState(false)
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   const isUser = message.role === 'user'
+
+  const handleOpenDocument = (documentId: string) => {
+    setSelectedDocumentId(documentId)
+    setModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setModalOpen(false)
+    setTimeout(() => setSelectedDocumentId(null), 300) // Clear after animation
+  }
 
   const handleFeedback = async (type: 'like' | 'dislike') => {
     setFeedback(type)
@@ -172,7 +186,10 @@ export default function ChatMessage({ message }: MessageProps) {
                         </p>
 
                         {/* Action Button */}
-                        <button className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-200 transition flex items-center gap-1">
+                        <button
+                          onClick={() => handleOpenDocument(primarySource.documentId)}
+                          className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-200 transition flex items-center gap-1"
+                        >
                           <BookOpen size={14} />
                           Ler documento completo →
                         </button>
@@ -225,9 +242,15 @@ export default function ChatMessage({ message }: MessageProps) {
                                         </div>
                                       </div>
                                     </div>
-                                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-3">
                                       "{source.content}"
                                     </p>
+                                    <button
+                                      onClick={() => handleOpenDocument(source.documentId)}
+                                      className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition"
+                                    >
+                                      Ler documento completo →
+                                    </button>
                                   </div>
                                 )
                               })}
@@ -239,6 +262,15 @@ export default function ChatMessage({ message }: MessageProps) {
                   )
                 })()}
               </div>
+            )}
+
+            {/* Document Modal */}
+            {selectedDocumentId && (
+              <DocumentModal
+                documentId={selectedDocumentId}
+                isOpen={modalOpen}
+                onClose={handleCloseModal}
+              />
             )}
 
             {/* Feedback & Copy */}
