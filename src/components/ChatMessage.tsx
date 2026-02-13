@@ -1,6 +1,6 @@
 'use client'
 
-import { User, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
+import { User, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Copy, Check, BookOpen } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 
@@ -9,6 +9,11 @@ interface Source {
   sourceName: string
   content: string
   score?: number
+  similarity?: number
+  similarityPercent?: number
+  date?: string
+  metadata?: any
+  rank?: number
 }
 
 interface MessageProps {
@@ -107,36 +112,132 @@ export default function ChatMessage({ message }: MessageProps) {
         {/* Sources & Feedback (only for assistant) */}
         {!isUser && (
           <div className="mt-2 space-y-2">
-            {/* Sources */}
+            {/* Pure Search Results - Most relevant first, expandable others */}
             {message.sources && message.sources.length > 0 && (
-              <div>
-                <button
-                  onClick={() => setShowSources(!showSources)}
-                  className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition"
-                >
-                  {showSources ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  <span>{message.sources.length} source(s)</span>
-                </button>
+              <div className="mt-4 space-y-3">
+                {/* Primary Result - Always Visible, Highly Emphasized */}
+                {(() => {
+                  // Sort by similarity to get the most relevant first
+                  const sortedSources = [...message.sources].sort(
+                    (a, b) => (b.similarityPercent || b.similarity || 0) - (a.similarityPercent || a.similarity || 0)
+                  )
+                  const primarySource = sortedSources[0]
+                  const otherSources = sortedSources.slice(1)
+                  const similarityPercent = primarySource.similarityPercent || Math.round((primarySource.similarity || 0) * 100)
 
-                {showSources && (
-                  <div className="mt-2 space-y-2">
-                    {message.sources.map((source, i) => (
-                      <div
-                        key={i}
-                        className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 text-sm"
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-gray-700 dark:text-gray-300">
-                            {source.sourceName}
-                          </span>
-                          <span className="text-gray-400">•</span>
-                          <span className="text-gray-500 dark:text-gray-400">{source.documentName}</span>
+                  return (
+                    <>
+                      {/* Primary Card - Large, Highlighted */}
+                      <div className="p-5 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/30 dark:via-green-950/30 dark:to-teal-950/30 rounded-xl border-2 border-emerald-300 dark:border-emerald-600/50 shadow-sm hover:shadow-md transition">
+                        {/* Header with Relevance Badge */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">🏆</span>
+                            <div>
+                              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                                Resultado Mais Relevante
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-bold text-emerald-900 dark:text-emerald-100">
+                                  {primarySource.sourceName}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                              {similarityPercent}%
+                            </div>
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400">Compatibilidade</p>
+                          </div>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 line-clamp-3">{source.content}</p>
+
+                        {/* Metadata */}
+                        <div className="flex items-center gap-4 mb-3 text-sm text-gray-700 dark:text-gray-300 pb-3 border-b border-emerald-200 dark:border-emerald-700/50">
+                          <div className="flex items-center gap-1">
+                            <BookOpen size={14} className="text-emerald-600 dark:text-emerald-400" />
+                            <span>{primarySource.documentName}</span>
+                          </div>
+                          {primarySource.date && (
+                            <>
+                              <span className="text-gray-400">•</span>
+                              <span>📅 {primarySource.date}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Content - Full text */}
+                        <p className="text-gray-800 dark:text-gray-200 text-base leading-relaxed font-medium mb-3">
+                          "{primarySource.content}"
+                        </p>
+
+                        {/* Action Button */}
+                        <button className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-200 transition flex items-center gap-1">
+                          <BookOpen size={14} />
+                          Ler documento completo →
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      {/* Other Results - Collapsible */}
+                      {otherSources.length > 0 && (
+                        <div className="mt-2">
+                          <button
+                            onClick={() => setShowSources(!showSources)}
+                            className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                          >
+                            {showSources ? (
+                              <>
+                                <ChevronUp size={16} />
+                                <span>Ocultar {otherSources.length} resultado(s)</span>
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown size={16} />
+                                <span>Ver {otherSources.length} outro(s) resultado(s) relevante(s)</span>
+                              </>
+                            )}
+                          </button>
+
+                          {showSources && (
+                            <div className="mt-3 space-y-2">
+                              {otherSources.map((source, i) => {
+                                const otherSimilarityPercent = source.similarityPercent || Math.round((source.similarity || 0) * 100)
+                                return (
+                                  <div
+                                    key={i}
+                                    className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-sm transition"
+                                  >
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                            #{i + 2} {source.sourceName}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                                          {source.documentName}
+                                          {source.date && ` • ${source.date}`}
+                                        </p>
+                                      </div>
+                                      <div className="ml-3 text-right">
+                                        <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                                          {otherSimilarityPercent}%
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+                                      "{source.content}"
+                                    </p>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             )}
 

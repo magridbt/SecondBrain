@@ -104,29 +104,39 @@ export async function POST(request: Request) {
       })
     }
 
-    // Log user message to audit
-    logAuditAction({
-      userId: user.id,
-      userEmail: user.email,
-      action: 'chat_message',
-      entityType: 'message',
-      entityId: userMessage?.id,
-      details: {
-        conversationId: convId,
-        messagePreview: message.substring(0, 200),
-        messageLength: message.length,
-        isSuspicious: suspiciousCheck.isSuspicious,
-      },
-    }).catch(err => console.error('Audit log error:', err))
+    // Log user message to audit (disabled temporarily - audit_logs table missing 'details' column)
+    // TODO: Fix audit_logs table schema and re-enable logging
+    // logAuditAction({
+    //   userId: user.id,
+    //   userEmail: user.email,
+    //   action: 'chat_message',
+    //   entityType: 'message',
+    //   entityId: userMessage?.id,
+    //   details: {
+    //     conversationId: convId,
+    //     messagePreview: message.substring(0, 200),
+    //     messageLength: message.length,
+    //     isSuspicious: suspiciousCheck.isSuspicious,
+    //   },
+    // }).catch(err => console.error('Audit log error:', err))
 
     // Search for relevant chunks using semantic search (embeddings)
-    // Search ONLY in Portuguese documents with high relevance threshold (60%)
+    // FIX 1.4: Reduced threshold from 0.6 (60%) to 0.35 (35%)
+    // Industry standard for semantic search: 0.3-0.4 range
+    // 0.6 was too aggressive and filtered out valid semantic matches
     let searchResults: SearchResult[] = []
     try {
-      searchResults = await semanticSearch(message, 5, 0.6, LANGUAGE)
-      console.log(`Semantic search found ${searchResults.length} results (Portuguese only, 60% similarity threshold)`)
+      searchResults = await semanticSearch(message, 5, 0.35, LANGUAGE)
+      const searchMode = searchResults.some((r: any) => r.fallbackMode)
+        ? `fuzzy fallback (${searchResults.length} results)`
+        : `vector search (${searchResults.length} results at 35% similarity)`
+      console.log(`✅ Semantic search found ${searchResults.length} results via ${searchMode}`)
+
+      if (searchResults.length === 0) {
+        console.warn('⚠️ Search returned 0 results - user will see "not found" response')
+      }
     } catch (searchError) {
-      console.error('Semantic search failed:', searchError)
+      console.error('❌ Semantic search failed:', searchError)
       // Continue with empty results - will trigger the "no documents" response
     }
 

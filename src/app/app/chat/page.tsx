@@ -110,32 +110,29 @@ export default function ChatPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/chat', {
+      // Use Pure Search API instead of Chat API (no Claude dependency)
+      const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: userMessage.content,
-          conversationId,
+          query: userMessage.content,
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Error sending message')
+        throw new Error('Error searching documents')
       }
 
       const data = await response.json()
 
-      if (data.conversationId && !conversationId) {
-        setConversationId(data.conversationId)
-        // Recarregar lista de conversas para incluir a nova
-        loadConversations()
-      }
-
+      // Format response for display
       const assistantMessage: Message = {
         id: Date.now().toString() + '-assistant',
         role: 'assistant',
-        content: data.answer,
-        sources: data.sources,
+        content: data.totalResults > 0
+          ? `Encontrei ${data.totalResults} resultado(s) relevante(s) para sua pergunta.`
+          : 'Nenhum resultado encontrado. Tente reformular sua pergunta.',
+        sources: data.results,
         created_at: new Date().toISOString(),
       }
 
