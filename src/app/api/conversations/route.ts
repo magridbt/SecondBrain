@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       role: msg.role,
       content: msg.content,
       sources: msg.sources || null,
-      searchQuery: msg.searchQuery || null,
+      search_query: msg.searchQuery || null,
       created_at: msg.created_at || new Date().toISOString(),
     }))
 
