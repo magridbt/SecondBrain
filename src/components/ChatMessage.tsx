@@ -24,7 +24,37 @@ interface MessageProps {
     role: 'user' | 'assistant'
     content: string
     sources?: Source[]
+    searchQuery?: string
   }
+}
+
+// Helper function to highlight search keywords in text
+function highlightKeywords(text: string, keywords: string) {
+  if (!keywords || keywords.length === 0) {
+    return text
+  }
+
+  // Extract important keywords (remove small words, filter by length)
+  const keywordList = keywords
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 2)
+    .slice(0, 3) // Limit to first 3 keywords
+
+  if (keywordList.length === 0) {
+    return text
+  }
+
+  // Create regex pattern to match keywords (case-insensitive, whole words or partial)
+  const pattern = new RegExp(`(${keywordList.join('|')})`, 'gi')
+
+  return text.split(pattern).map((part, i) => {
+    // If part matches a keyword, wrap it with span for highlighting
+    if (pattern.test(part)) {
+      return `<mark style="background-color: #fcd34d; color: #000; padding: 2px 4px; border-radius: 3px; font-weight: 500;">${part}</mark>`
+    }
+    return part
+  }).join('')
 }
 
 export default function ChatMessage({ message }: MessageProps) {
@@ -180,10 +210,13 @@ export default function ChatMessage({ message }: MessageProps) {
                           )}
                         </div>
 
-                        {/* Content - Full text */}
-                        <p className="text-gray-800 dark:text-gray-200 text-base leading-relaxed font-medium mb-3">
-                          "{primarySource.content}"
-                        </p>
+                        {/* Content - Full text with keyword highlighting */}
+                        <p
+                          className="text-gray-800 dark:text-gray-200 text-base leading-relaxed font-medium mb-3"
+                          dangerouslySetInnerHTML={{
+                            __html: `"${highlightKeywords(primarySource.content, message.searchQuery || '')}"`
+                          }}
+                        />
 
                         {/* Action Button */}
                         <button
@@ -242,9 +275,12 @@ export default function ChatMessage({ message }: MessageProps) {
                                         </div>
                                       </div>
                                     </div>
-                                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-3">
-                                      "{source.content}"
-                                    </p>
+                                    <p
+                                      className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-3"
+                                      dangerouslySetInnerHTML={{
+                                        __html: `"${highlightKeywords(source.content, message.searchQuery || '')}"`
+                                      }}
+                                    />
                                     <button
                                       onClick={() => handleOpenDocument(source.documentId)}
                                       className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition"

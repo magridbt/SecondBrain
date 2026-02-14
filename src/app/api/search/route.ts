@@ -39,16 +39,20 @@ export async function POST(request: Request) {
     // Perform semantic search - NO CLAUDE, JUST RESULTS
     let searchResults: SearchResult[] = []
     try {
-      searchResults = await semanticSearch(query, 5, 0.35, LANGUAGE)
-      console.log(`✅ Search found ${searchResults.length} results`)
+      // Get 8 best results with minimum 70% threshold (0.70)
+      searchResults = await semanticSearch(query, 8, 0.70, LANGUAGE)
+      console.log(`✅ Search found ${searchResults.length} results (filtered: similarity >= 70%)`)
     } catch (searchError) {
       console.error('❌ Semantic search failed:', searchError)
       // Return empty results if search fails
       searchResults = []
     }
 
+    // Filter results to only include those with similarity >= 0.70 (70%)
+    const filteredResults = searchResults.filter(result => (result.similarity || 0) >= 0.70)
+
     // Format results for frontend
-    const formattedResults = searchResults.map((result, index) => ({
+    const formattedResults = filteredResults.map((result, index) => ({
       rank: index + 1,
       id: result.id,
       documentId: result.documentId,
@@ -66,9 +70,11 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         query,
+        searchQuery: query, // Pass query to frontend for keyword highlighting
         totalResults: formattedResults.length,
         results: formattedResults,
         mode: 'semantic_search', // Indicate this is pure search, not Claude-processed
+        minSimilarity: '70%', // Indicate minimum threshold applied
       },
       {
         headers: getRateLimitHeaders({ limit, remaining, reset })

@@ -9,6 +9,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   sources?: any[]
+  searchQuery?: string
   created_at: string
 }
 
@@ -133,6 +134,7 @@ export default function ChatPage() {
           ? `Encontrei ${data.totalResults} resultado(s) relevante(s) para sua pergunta.`
           : 'Nenhum resultado encontrado. Tente reformular sua pergunta.',
         sources: data.results,
+        searchQuery: userMessage.content, // Pass the search query for keyword highlighting
         created_at: new Date().toISOString(),
       }
 
