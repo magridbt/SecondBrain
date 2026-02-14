@@ -1,0 +1,80 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║           🚀 OTIMIZAÇÃO DO SUPABASE - QUICK START                           ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+⏱️  TEMPO TOTAL: 5 minutos (você) + 1 minuto (eu)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 PASSO 1: Abrir Supabase (30 segundos)
+
+Clique aqui:
+https://app.supabase.com/project/zvuzkuyqeapbmfmcngae/sql
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 PASSO 2: Copiar SQL (1 minuto)
+
+Abra o arquivo: SUPABASE_OPTIMIZATION.sql
+
+Copie TODO o conteúdo (Ctrl+A, Ctrl+C)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 PASSO 3: Colar no Supabase (30 segundos)
+
+No SQL Editor (já aberto):
+  1. Cole o SQL (Ctrl+V)
+  2. Você verá o código com cores
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📍 PASSO 4: Executar (30 segundos)
+
+Clique o botão azul "RUN" (lado direito)
+OU pressione: Ctrl + Enter
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ SUCESSO!
+
+Você deve ver:
+
+    ✅ Success. No rows returned.
+
+Isso significa a função foi criada! 🎉
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📢 PRÓXIMO PASSO
+
+Avise-me aqui:
+"Pronto! Função criada no Supabase"
+
+Depois disso, vou:
+  ✅ Atualizar o código
+  ✅ Testar buscas
+  ✅ Fazer commit
+  ✅ Reiniciar servidor
+  ✅ Sistema otimizado! 🚀
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❓ PROBLEMA?
+
+Se ver erro:
+  1. Copie todo o arquivo SUPABASE_OPTIMIZATION.sql (não parcial)
+  2. Tente novamente
+  3. Me avise da mensagem de erro
+
+Se não conseguir acessar o link:
+  1. Login no Supabase
+  2. Projeto: zvuzkuyqeapbmfmcngae
+  3. Vá para SQL Editor
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Vamos lá! 🚀
+
