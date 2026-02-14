@@ -2,6 +2,66 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { logAuditAction } from '@/lib/audit'
 
+// POST - Criar nova conversa com primeira mensagem
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
+    }
+
+    const { messages } = await request.json()
+
+    if (!messages || messages.length === 0) {
+      return NextResponse.json({ error: 'Mensagens obrigatorias' }, { status: 400 })
+    }
+
+    // Criar nova conversa
+    const { data: conv, error: convError } = await supabase
+      .from('conversations')
+      .insert({
+        user_id: user.id,
+        module: 'sri_ab_teachings',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (convError) throw convError
+
+    // Salvar mensagens
+    const messagesToInsert = messages.map((msg: any) => ({
+      conversation_id: conv.id,
+      role: msg.role,
+      content: msg.content,
+      sources: msg.sources || null,
+      searchQuery: msg.searchQuery || null,
+      created_at: msg.created_at || new Date().toISOString(),
+    }))
+
+    const { error: msgError } = await supabase
+      .from('messages')
+      .insert(messagesToInsert)
+
+    if (msgError) throw msgError
+
+    return NextResponse.json({
+      conversation: {
+        id: conv.id,
+        created_at: conv.created_at,
+        updated_at: conv.updated_at,
+        messageCount: messages.length,
+      }
+    })
+  } catch (error: any) {
+    console.error('Create conversation error:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
 // GET - Listar conversas do usuario
 export async function GET() {
   try {

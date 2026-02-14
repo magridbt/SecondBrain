@@ -139,6 +139,40 @@ export default function ChatPage() {
       }
 
       setMessages((prev) => [...prev, assistantMessage])
+
+      // ========== SALVAR CONVERSA NO BANCO DE DADOS ==========
+      try {
+        // Se não há conversa em andamento, criar uma nova
+        if (!conversationId) {
+          const createConvResponse = await fetch('/api/conversations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [userMessage, assistantMessage],
+            }),
+          })
+
+          if (createConvResponse.ok) {
+            const convData = await createConvResponse.json()
+            setConversationId(convData.conversation.id)
+            // Recarregar lista de conversas
+            loadConversations()
+          }
+        } else {
+          // Se já existe conversa, adicionar mensagens
+          await fetch(`/api/conversations/${conversationId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [userMessage, assistantMessage],
+            }),
+          })
+        }
+      } catch (saveError) {
+        console.error('Erro ao salvar conversa:', saveError)
+        // Não falha a busca se salvar a conversa falhar
+      }
+      // ========== FIM SALVAR CONVERSA ==========
     } catch (error) {
       console.error('Error:', error)
       const errorMessage: Message = {
