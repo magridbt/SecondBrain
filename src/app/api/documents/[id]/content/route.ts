@@ -32,7 +32,7 @@ export async function GET(
           id,
           content,
           metadata,
-          sequence_order
+          chunk_index
         )
       `)
       .eq('id', documentId)
@@ -47,7 +47,7 @@ export async function GET(
 
     // Reconstruct full content from chunks
     const chunks = (document.document_chunks || [])
-      .sort((a: any, b: any) => (a.sequence_order || 0) - (b.sequence_order || 0))
+      .sort((a: any, b: any) => (a.chunk_index || 0) - (b.chunk_index || 0))
       .map((chunk: any) => chunk.content)
       .join('\n\n')
 
