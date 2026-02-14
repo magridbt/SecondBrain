@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, Loader2, BookOpen } from 'lucide-react'
+import { highlightKeywords } from '@/lib/highlight-utils'
 
 interface DocumentContent {
   id: string
@@ -17,9 +18,10 @@ interface DocumentModalProps {
   documentId: string
   isOpen: boolean
   onClose: () => void
+  searchQuery?: string
 }
 
-export default function DocumentModal({ documentId, isOpen, onClose }: DocumentModalProps) {
+export default function DocumentModal({ documentId, isOpen, onClose, searchQuery }: DocumentModalProps) {
   const [loading, setLoading] = useState(false)
   const [document, setDocument] = useState<DocumentContent | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -94,9 +96,14 @@ export default function DocumentModal({ documentId, isOpen, onClose }: DocumentM
 
           {document && !loading && (
             <div className="prose dark:prose-invert max-w-none">
-              <div className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                {document.content}
-              </div>
+              <div
+                className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{
+                  __html: searchQuery
+                    ? highlightKeywords(document.content, searchQuery)
+                    : document.content
+                }}
+              />
 
               <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400">
                 📊 Documento contém {document.chunkCount} segmento(s)
