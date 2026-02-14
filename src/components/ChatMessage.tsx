@@ -186,7 +186,7 @@ export default function ChatMessage({ message }: MessageProps) {
                         <p
                           className="text-gray-800 dark:text-gray-200 text-base leading-relaxed font-medium mb-3"
                           dangerouslySetInnerHTML={{
-                            __html: `"${highlightKeywords(primarySource.content, message.searchQuery || '')}"`
+                            __html: highlightKeywords(primarySource.content, message.searchQuery || '')
                           }}
                         />
 
@@ -250,7 +250,7 @@ export default function ChatMessage({ message }: MessageProps) {
                                     <p
                                       className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-3"
                                       dangerouslySetInnerHTML={{
-                                        __html: `"${highlightKeywords(source.content, message.searchQuery || '')}"`
+                                        __html: highlightKeywords(source.content, message.searchQuery || '')
                                       }}
                                     />
                                     <button
