@@ -28,33 +28,39 @@ interface MessageProps {
   }
 }
 
-// Helper function to highlight search keywords in text
+// Helper function to highlight search keywords in text (exact word matching only)
 function highlightKeywords(text: string, keywords: string) {
   if (!keywords || keywords.length === 0) {
     return text
   }
 
-  // Extract important keywords (remove small words, filter by length)
+  // Common Portuguese stopwords to ignore
+  const stopwords = new Set([
+    'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas',
+    'de', 'do', 'da', 'dos', 'das', 'em', 'no', 'na', 'nos', 'nas',
+    'que', 'qual', 'quais', 'quando', 'onde', 'como', 'por', 'para',
+    'é', 'são', 'está', 'estão', 'ser', 'estar', 'ter', 'sido',
+    'e', 'ou', 'mais', 'menos', 'muito', 'pouco', 'já', 'ainda',
+    'se', 'não', 'nem', 'nenhum', 'nenhuma', 'este', 'esse', 'aquele'
+  ])
+
+  // Extract important keywords (remove stopwords, keep only meaningful words)
   const keywordList = keywords
     .toLowerCase()
     .split(/\s+/)
-    .filter(word => word.length > 2)
+    .filter(word => word.length > 3 && !stopwords.has(word)) // Only words > 3 chars and not stopwords
     .slice(0, 3) // Limit to first 3 keywords
 
   if (keywordList.length === 0) {
     return text
   }
 
-  // Create regex pattern to match keywords (case-insensitive, whole words or partial)
-  const pattern = new RegExp(`(${keywordList.join('|')})`, 'gi')
+  // Create regex pattern with word boundaries to match WHOLE WORDS ONLY
+  const pattern = new RegExp(`\\b(${keywordList.join('|')})\\b`, 'gi')
 
-  return text.split(pattern).map((part, i) => {
-    // If part matches a keyword, wrap it with span for highlighting
-    if (pattern.test(part)) {
-      return `<mark style="background-color: #fcd34d; color: #000; padding: 2px 4px; border-radius: 3px; font-weight: 500;">${part}</mark>`
-    }
-    return part
-  }).join('')
+  return text.replace(pattern, (match) => {
+    return `<mark style="background-color: #fcd34d; color: #000; padding: 2px 4px; border-radius: 3px; font-weight: 500;">${match}</mark>`
+  })
 }
 
 export default function ChatMessage({ message }: MessageProps) {
