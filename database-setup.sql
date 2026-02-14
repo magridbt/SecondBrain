@@ -387,7 +387,8 @@ CREATE POLICY "System can manage cache"
 CREATE OR REPLACE FUNCTION search_teachings(
   query_embedding VECTOR(1024),  -- Voyage AI voyage-2 uses 1024 dimensions
   match_threshold FLOAT DEFAULT 0.3,
-  match_count INT DEFAULT 5
+  match_count INT DEFAULT 5,
+  filter_language TEXT DEFAULT NULL
 )
 RETURNS TABLE (
   chunk_id UUID,
@@ -420,6 +421,7 @@ BEGIN
     AND d.deleted_at IS NULL
     AND ts.is_active = true
     AND 1 - (dc.embedding <=> query_embedding) > match_threshold
+    AND (filter_language IS NULL OR d.metadata->>'language' = filter_language OR d.metadata->>'language' IS NULL)
   ORDER BY dc.embedding <=> query_embedding
   LIMIT match_count;
 END;

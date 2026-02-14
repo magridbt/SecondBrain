@@ -71,6 +71,7 @@ export interface SearchResult {
   similarity: number
   metadata?: Record<string, unknown>
   themes?: string[]
+  isFuzzyMatch?: boolean  // Flag indicating if this result was found via fuzzy matching
 }
 
 export interface SemanticSearchResponse {

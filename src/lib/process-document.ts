@@ -172,12 +172,29 @@ export async function processDocument(documentId: string): Promise<{ success: bo
       }
     }
 
+    // FIX 1.3: Validate embeddings before storage
+    console.log('🔍 Validating embeddings before storage...')
+    for (let i = 0; i < allEmbeddings.length; i++) {
+      if (!allEmbeddings[i] || !Array.isArray(allEmbeddings[i])) {
+        throw new Error(`❌ Embedding ${i} is invalid (not an array) - storage aborted`)
+      }
+      if (allEmbeddings[i].length !== 1024) {
+        throw new Error(`❌ Embedding ${i} has wrong dimension: ${allEmbeddings[i].length} (expected 1024) - storage aborted`)
+      }
+      for (const value of allEmbeddings[i]) {
+        if (!Number.isFinite(value)) {
+          throw new Error(`❌ Embedding ${i} contains invalid value: ${value} (NaN or Infinity) - storage aborted`)
+        }
+      }
+    }
+    console.log(`✅ Embeddings validation passed: ${allEmbeddings.length} embeddings × 1024 dimensions`)
+
     // Save chunks to database
-    // Store embedding as PostgreSQL vector format string: [0.1,0.2,...]
+    // FIX 1.2: Store embedding as string - database expects: "[0.1, 0.2, ...]"
     const chunkRecords = chunks.map((content, index) => ({
       document_id: documentId,
       content,
-      embedding: `[${allEmbeddings[index].join(',')}]`,
+      embedding: `[${allEmbeddings[index].join(',')}]`,  // String format for database
       chunk_index: index,
       token_count: Math.ceil(content.length / 4),
       metadata: {
@@ -274,6 +291,23 @@ export async function processTextDocument(documentId: string, text: string): Pro
       }
     }
 
+    // FIX 1.3: Validate embeddings before storage
+    console.log('🔍 Validating embeddings before storage...')
+    for (let i = 0; i < allEmbeddings.length; i++) {
+      if (!allEmbeddings[i] || !Array.isArray(allEmbeddings[i])) {
+        throw new Error(`❌ Embedding ${i} is invalid (not an array) - storage aborted`)
+      }
+      if (allEmbeddings[i].length !== 1024) {
+        throw new Error(`❌ Embedding ${i} has wrong dimension: ${allEmbeddings[i].length} (expected 1024) - storage aborted`)
+      }
+      for (const value of allEmbeddings[i]) {
+        if (!Number.isFinite(value)) {
+          throw new Error(`❌ Embedding ${i} contains invalid value: ${value} (NaN or Infinity) - storage aborted`)
+        }
+      }
+    }
+    console.log(`✅ Embeddings validation passed: ${allEmbeddings.length} embeddings × 1024 dimensions`)
+
     // Fetch document metadata
     const { data: doc } = await adminClient
       .from('documents')
@@ -282,11 +316,11 @@ export async function processTextDocument(documentId: string, text: string): Pro
       .single()
 
     // Save chunks to database
-    // Store embedding as PostgreSQL vector format string: [0.1,0.2,...]
+    // FIX 1.2: Store embedding as string - database expects: "[0.1, 0.2, ...]"
     const chunkRecords = chunks.map((content, index) => ({
       document_id: documentId,
       content,
-      embedding: `[${allEmbeddings[index].join(',')}]`,
+      embedding: `[${allEmbeddings[index].join(',')}]`,  // String format for database
       chunk_index: index,
       token_count: Math.ceil(content.length / 4),
       metadata: {

@@ -96,12 +96,13 @@ export function highlightKeywords(text: string, keywords: string): string {
     if (stem.length >= 3) {
       // Escape special regex chars in stem
       const escapedStem = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      // Match any word starting with the stem (e.g., "sofr" matches "sofrimento", "sofre", "sofrer")
-      patterns.push(`${escapedStem}\\w*`)
+      // Match any word starting with the stem, allowing accented chars
+      // Use unicode-aware pattern: stem + any letters (including accented)
+      patterns.push(`${escapedStem}[a-zA-ZÀ-ÿ]*`)
     } else {
-      // For very short stems, use the original word with word boundaries
+      // For very short stems, use the original word
       const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      patterns.push(`\\b${escaped}\\b`)
+      patterns.push(escaped)
     }
   }
 
@@ -109,15 +110,14 @@ export function highlightKeywords(text: string, keywords: string): string {
     return text
   }
 
-  // Match words using combined pattern, case-insensitive
-  // Use a negative lookbehind/lookahead to avoid matching inside HTML tags
+  // Use word boundary approach that works with Portuguese accented characters
+  // Match patterns that are preceded by start-of-string or non-letter and followed by non-letter or end-of-string
   const combinedPattern = new RegExp(
-    `(?<![<\\w])(?:${patterns.join('|')})(?![\\w>])`,
+    `(?:^|(?<=[^a-zA-ZÀ-ÿ]))(?:${patterns.join('|')})(?=[^a-zA-ZÀ-ÿ]|$)`,
     'gi'
   )
 
   return text.replace(combinedPattern, (match) => {
-    // Don't highlight very short accidental matches (1-2 chars)
     if (match.length < 3) return match
     return `<mark style="background-color: #fcd34d; color: #000; padding: 2px 4px; border-radius: 3px; font-weight: 500;">${match}</mark>`
   })

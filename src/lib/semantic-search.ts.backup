@@ -1,0 +1,293 @@
+import { createAdminClient } from '@/lib/supabase/server'
+import {
+  normalizeText,
+  calculateFuzzyScore,
+  fuzzyFind,
+  findFuzzyKeywordsInContent,
+  enhanceQueryWithFuzzyMatches
+} from '@/lib/fuzzy-search'
+
+const VOYAGE_API_URL = 'https://api.voyageai.com/v1/embeddings'
+const VOYAGE_MODEL = 'voyage-2'
+
+// Delay helper
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Generate embedding for a query using Voyage AI
+export async function generateQueryEmbedding(query: string, retryCount = 0): Promise<number[]> {
+  const response = await fetch(VOYAGE_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.VOYAGE_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: VOYAGE_MODEL,
+      input: [query],
+      input_type: 'query', // Important: use 'query' for search queries, not 'document'
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+
+    // If rate limited, wait and try again
+    if (response.status === 429 && retryCount < 3) {
+      console.log(`Rate limit hit, waiting 3 seconds... (attempt ${retryCount + 1})`)
+      await delay(3000)
+      return generateQueryEmbedding(query, retryCount + 1)
+    }
+
+    throw new Error(`Voyage AI error: ${errorText}`)
+  }
+
+  const data = await response.json()
+  return data.data[0].embedding
+}
+
+// Search for relevant chunks using vector similarity
+// Now with enhanced fuzzy matching support for typos
+export async function semanticSearch(
+  query: string,
+  limit: number = 5,
+  similarityThreshold: number = 0.25, // Lowered threshold to catch more fuzzy matches
+  language?: string | null
+): Promise<SearchResult[]> {
+  const adminClient = createAdminClient()
+
+  try {
+    // Enhance query with fuzzy matching to catch typos
+    const fuzzyEnhanced = enhanceQueryWithFuzzyMatches(query)
+    console.log('Query analysis:', {
+      original: fuzzyEnhanced.original,
+      normalized: fuzzyEnhanced.normalized,
+      variations: fuzzyEnhanced.variations.length
+    })
+
+    // Generate embedding for the NORMALIZED query (better for misspellings)
+    const queryEmbedding = await generateQueryEmbedding(fuzzyEnhanced.normalized)
+
+    // FIX 1.1: Convert to string format that database expects
+    // Database function currently expects string format: "[0.1, 0.2, ...]"
+    const embeddingStr = `[${queryEmbedding.join(',')}]`
+
+    const { data: chunks, error } = await adminClient.rpc('search_teachings', {
+      query_embedding: embeddingStr,
+      match_threshold: similarityThreshold,
+      match_count: limit,
+      filter_language: language || null
+    })
+
+    if (error) {
+      // FIX 1.5: Enhanced error logging for diagnostics
+      const errorMsg = `VECTOR_SEARCH_ERROR: ${error.message || error}`
+      console.error('Semantic search error:', errorMsg)
+      console.warn('⚠️ Vector search failed - falling back to fuzzy text search (lower quality)')
+      console.error('Debug info:', {
+        queryLength: fuzzyEnhanced.normalized.length,
+        embeddingDim: queryEmbedding.length,
+        threshold: similarityThreshold,
+        language: language,
+        errorDetails: error
+      })
+      // Fallback to text search if vector search fails
+      const results = await fallbackTextSearch(adminClient, query, limit, language)
+      return results.map((r: any) => ({ ...r, fallbackMode: 'vector_search_error' }))
+    }
+
+    if (!chunks || chunks.length === 0) {
+      // FIX 1.5: Log why no results were found
+      console.warn('🔍 NO_VECTOR_RESULTS: Vector search completed but found no matching vectors above threshold')
+      console.log(`📝 Query: "${query}"`)
+      console.log(`📊 Threshold: ${(similarityThreshold * 100).toFixed(1)}% | Embedding dimensions: ${queryEmbedding.length}`)
+      console.log('Attempting fuzzy text search for better coverage...')
+      // Fallback to text search if no results
+      const results = await fallbackTextSearch(adminClient, query, limit, language)
+      return results.map((r: any) => ({ ...r, fallbackMode: 'no_vector_matches' }))
+    }
+
+    return chunks.map((chunk: any) => ({
+      id: chunk.chunk_id,
+      content: chunk.content,
+      documentId: chunk.document_id,
+      documentName: chunk.document_name,
+      sourceName: chunk.source_name,
+      similarity: chunk.similarity,
+      metadata: chunk.metadata
+    }))
+  } catch (error) {
+    console.error('Semantic search failed:', error)
+    return fallbackTextSearch(adminClient, query, limit, language)
+  }
+}
+
+// Fallback text search when vector search fails or returns no results
+// Now with fuzzy matching support for typos and variations
+async function fallbackTextSearch(
+  client: any,
+  query: string,
+  limit: number,
+  language?: string | null
+): Promise<SearchResult[]> {
+  console.log('Using fallback text search with fuzzy matching', language ? `(language: ${language})` : '(all languages)')
+
+  try {
+    // Use fuzzy search enhancements to get better search terms
+    const fuzzyEnhanced = enhanceQueryWithFuzzyMatches(query)
+    const normalizedQuery = fuzzyEnhanced.normalized
+    const searchTerms = normalizedQuery
+      .split(/\s+/)
+      .filter(t => t.length > 2)
+      .slice(0, 5)
+
+    if (searchTerms.length === 0) {
+      return []
+    }
+
+    // First try: exact/ilike matches
+    let queryBuilder = client
+      .from('document_chunks')
+      .select(`
+        id,
+        content,
+        metadata,
+        document_id,
+        documents!inner (
+          id,
+          name,
+          status,
+          deleted_at,
+          metadata,
+          teaching_sources!inner (
+            id,
+            name,
+            is_active
+          )
+        )
+      `)
+      .eq('documents.status', 'indexed')
+      .is('documents.deleted_at', null)
+      .eq('documents.teaching_sources.is_active', true)
+
+    // Filter by language if specified
+    if (language) {
+      queryBuilder = queryBuilder.eq('documents.metadata->>language', language)
+    }
+
+    // Try to find exact matches first
+    let { data: chunks, error } = await queryBuilder
+      .or(searchTerms.map(term => `content.ilike.%${term}%`).join(','))
+      .limit(limit)
+
+    if (error) {
+      console.error('Fallback search error:', error)
+      chunks = []
+    }
+
+    // If we found results, process them with fuzzy scoring
+    if (chunks && chunks.length > 0) {
+      // Score results based on fuzzy match
+      const scoredResults = chunks.map((chunk: any) => {
+        let fuzzyScore = 0.5
+
+        // Calculate fuzzy score based on how well the query matches the content
+        const contentLower = chunk.content.toLowerCase()
+        for (const term of searchTerms) {
+          const termScore = calculateFuzzyScore(term, contentLower.substring(0, 100))
+          fuzzyScore = Math.max(fuzzyScore, termScore)
+        }
+
+        return {
+          id: chunk.id,
+          content: chunk.content,
+          documentId: chunk.documents?.id || chunk.document_id,
+          documentName: chunk.documents?.name || 'Unknown',
+          sourceName: chunk.documents?.teaching_sources?.name || 'Unknown',
+          similarity: fuzzyScore,
+          metadata: chunk.metadata,
+          isFuzzyMatch: true
+        }
+      })
+
+      // Sort by fuzzy score and return top results
+      return scoredResults
+        .sort((a: any, b: any) => b.similarity - a.similarity)
+        .slice(0, limit)
+    }
+
+    // Second try: if no exact results, do fuzzy matching on all chunks
+    console.log('No exact matches found, trying fuzzy matching across all content...')
+
+    const { data: allChunks, error: allError } = await client
+      .from('document_chunks')
+      .select(`
+        id,
+        content,
+        metadata,
+        document_id,
+        documents!inner (
+          id,
+          name,
+          status,
+          deleted_at,
+          metadata,
+          teaching_sources!inner (
+            id,
+            name,
+            is_active
+          )
+        )
+      `)
+      .eq('documents.status', 'indexed')
+      .is('documents.deleted_at', null)
+      .eq('documents.teaching_sources.is_active', true)
+      .limit(100) // Get more candidates for fuzzy matching
+
+    if (allError || !allChunks) {
+      return []
+    }
+
+    // Apply fuzzy matching to all chunks
+    const fuzzyResults = allChunks
+      .map((chunk: any) => {
+        const keywords = findFuzzyKeywordsInContent(query, chunk.content, 0.65)
+        const fuzzyScore = keywords.length > 0
+          ? Math.max(...keywords.map(k => k.score))
+          : 0
+
+        return {
+          id: chunk.id,
+          content: chunk.content,
+          documentId: chunk.documents?.id || chunk.document_id,
+          documentName: chunk.documents?.name || 'Unknown',
+          sourceName: chunk.documents?.teaching_sources?.name || 'Unknown',
+          similarity: fuzzyScore,
+          metadata: chunk.metadata,
+          isFuzzyMatch: fuzzyScore > 0
+        }
+      })
+      .filter((result: any) => result.similarity > 0.5)
+      .sort((a: any, b: any) => b.similarity - a.similarity)
+      .slice(0, limit)
+
+    if (fuzzyResults.length > 0) {
+      console.log(`Found ${fuzzyResults.length} results using fuzzy matching`)
+      return fuzzyResults
+    }
+
+    return []
+  } catch (error) {
+    console.error('Fallback search failed:', error)
+    return []
+  }
+}
+
+export interface SearchResult {
+  id: string
+  content: string
+  documentId: string
+  documentName: string
+  sourceName: string
+  similarity: number
+  metadata?: any
+}
