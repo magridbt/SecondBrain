@@ -17,6 +17,9 @@ const PromptCreateSchema = z.object({
   color: z.string().max(50).optional().default('gold'),
   is_public: z.boolean().optional().default(false),
   conversation_starters: z.array(z.string().max(500)).max(10).optional().default([]),
+  category: z.string().max(50).optional().default('daily-teaching'),
+  ai_provider: z.enum(['claude', 'chatgpt', 'gemini']).optional().default('claude'),
+  source_url: z.string().url().max(2000).optional().nullable(),
 })
 
 const PromptUpdateSchema = z.object({
@@ -29,6 +32,8 @@ const PromptUpdateSchema = z.object({
   is_public: z.boolean().optional(),
   is_active: z.boolean().optional(),
   conversation_starters: z.array(z.string().max(500)).max(10).optional(),
+  ai_provider: z.enum(['claude', 'chatgpt', 'gemini']).optional(),
+  source_url: z.string().url().max(2000).optional().nullable(),
 })
 
 const PromptIdQuerySchema = z.object({
@@ -66,12 +71,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const includePublic = searchParams.get('includePublic') !== 'false'
+    const category = searchParams.get('category') || 'daily-teaching'
 
     // Build query
     let query = supabase
       .from('custom_prompts')
       .select('*')
       .eq('is_active', true)
+      .eq('category', category)
       .order('usage_count', { ascending: false })
 
     if (includePublic) {
@@ -148,6 +155,9 @@ export async function POST(request: NextRequest) {
         color: body.color,
         is_public: body.is_public,
         conversation_starters: body.conversation_starters,
+        category: body.category || 'daily-teaching',
+        ai_provider: body.ai_provider || 'claude',
+        source_url: body.source_url || null,
       })
       .select()
       .single()
@@ -217,6 +227,8 @@ export async function PUT(request: NextRequest) {
     if (body.is_public !== undefined) updates.is_public = body.is_public
     if (body.is_active !== undefined) updates.is_active = body.is_active
     if (body.conversation_starters !== undefined) updates.conversation_starters = body.conversation_starters
+    if (body.ai_provider !== undefined) updates.ai_provider = body.ai_provider
+    if (body.source_url !== undefined) updates.source_url = body.source_url
 
     const { data: prompt, error } = await supabase
       .from('custom_prompts')

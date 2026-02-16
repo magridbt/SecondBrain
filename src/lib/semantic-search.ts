@@ -11,6 +11,7 @@ import {
   findFuzzyKeywordsInContent,
   enhanceQueryWithFuzzyMatches
 } from '@/lib/fuzzy-search'
+import { getCachedEmbedding, setCachedEmbedding } from '@/lib/embedding-cache'
 
 const VOYAGE_API_URL = 'https://api.voyageai.com/v1/embeddings'
 const VOYAGE_MODEL = 'voyage-2'
@@ -68,7 +69,15 @@ export async function semanticSearch(
       variations: fuzzyEnhanced.variations.length
     })
 
-    const queryEmbedding = await generateQueryEmbedding(fuzzyEnhanced.normalized)
+    // Try cache first, then generate embedding
+    let queryEmbedding = await getCachedEmbedding(fuzzyEnhanced.normalized).catch(() => null)
+    if (!queryEmbedding) {
+      queryEmbedding = await generateQueryEmbedding(fuzzyEnhanced.normalized)
+      // Cache for future use (fire and forget)
+      setCachedEmbedding(fuzzyEnhanced.normalized, queryEmbedding).catch(() => {})
+    } else {
+      console.log('📦 Embedding cache HIT')
+    }
     const embeddingStr = `[${queryEmbedding.join(',')}]`
 
     console.log(`🔍 Semantic Search (OPTIMIZED): "${query}" - Threshold: ${(similarityThreshold * 100).toFixed(0)}%`)

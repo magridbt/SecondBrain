@@ -48,11 +48,19 @@ export async function POST(request: Request) {
       searchResults = []
     }
 
-    // Results are already filtered by the threshold in semanticSearch
-    const filteredResults = searchResults
+    // Deduplicate: keep best result per document
+    const seenDocuments = new Map<string, SearchResult>()
+    for (const result of searchResults) {
+      const existing = seenDocuments.get(result.documentId)
+      if (!existing || (result.similarity || 0) > (existing.similarity || 0)) {
+        seenDocuments.set(result.documentId, result)
+      }
+    }
+    const dedupedResults = Array.from(seenDocuments.values())
+      .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
 
     // Format results for frontend
-    const formattedResults = filteredResults.map((result, index) => ({
+    const formattedResults = dedupedResults.map((result, index) => ({
       rank: index + 1,
       id: result.id,
       documentId: result.documentId,

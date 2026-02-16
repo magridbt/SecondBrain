@@ -1,15 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { chatRateLimiter, getRateLimitHeaders } from '@/lib/ratelimit'
 import { semanticSearch, SearchResult } from '@/lib/semantic-search'
 import { logAuditAction, checkSuspiciousContent, flagContent } from '@/lib/audit'
+import { callAIWithFallback } from '@/lib/ai-fallback'
+import { checkUsageLimit } from '@/lib/token-tracking'
+import { withAuth, errorResponse, successResponse, generateTraceId, validateInput, schemas, safeRoute } from '@/lib/api-utils'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-})
-
-// Portuguese only - no language detection needed for now
 const LANGUAGE = 'pt'
 
 const SYSTEM_PROMPT = `You are a faithful assistant that transmits ONLY the authentic teachings of Sri Amma Bhagavan.
@@ -43,221 +39,191 @@ ABSOLUTE AND NON-NEGOTIABLE RULES:
 
 Remember: It is better to say "I don't have this information" than to invent something. The integrity of Sri Amma Bhagavan's teachings is sacred and must be preserved.`
 
-export async function POST(request: Request) {
+export const POST = safeRoute(async (request: Request) => {
+  const traceId = generateTraceId()
+
+  // 1. Auth check
+  const authResult = await withAuth(request)
+  if (authResult instanceof Response) return authResult
+  const { user, profile } = authResult
+
+  // 2. Rate limiting
+  const { success, limit, remaining, reset } = await chatRateLimiter.limit(user.id)
+  if (!success) {
+    return errorResponse('Limite de requisicoes atingido. Aguarde alguns minutos.', 429, traceId, 'RATE_LIMITED')
+  }
+
+  // 3. Input validation
+  const body = await request.json()
+  const validation = validateInput(schemas.chatMessage, body)
+  if (!validation.success) {
+    return errorResponse(validation.error, 400, traceId, 'VALIDATION_ERROR')
+  }
+  const { message, conversationId } = validation.data
+
+  // 4. Usage limit check
+  const usageCheck = await checkUsageLimit(user.id, profile?.role || 'member')
+  if (!usageCheck.allowed) {
+    return errorResponse(usageCheck.reason || 'Limite de uso atingido', 429, traceId, 'USAGE_LIMIT')
+  }
+
+  const supabase = await createClient()
+
+  // 5. Get or create conversation
+  let convId = conversationId
+  if (!convId) {
+    const { data: newConv, error: convError } = await supabase
+      .from('conversations')
+      .insert({ user_id: user.id, module: 'sri_ab_teachings' })
+      .select()
+      .single()
+
+    if (convError) throw convError
+    convId = newConv.id
+  }
+
+  // 6. Save user message
+  const { data: userMessage } = await supabase.from('messages').insert({
+    conversation_id: convId,
+    role: 'user',
+    content: message,
+  }).select('id').single()
+
+  // 7. Check suspicious content
+  const suspiciousCheck = checkSuspiciousContent(message)
+  if (suspiciousCheck.isSuspicious && userMessage) {
+    await flagContent({
+      userId: user.id,
+      contentType: 'message',
+      contentId: userMessage.id,
+      contentText: message,
+      reason: suspiciousCheck.reason as any || 'auto_detected',
+      severity: suspiciousCheck.severity,
+    })
+  }
+
+  // 8. Audit logging (RE-ENABLED after migration 002)
+  logAuditAction({
+    userId: user.id,
+    userEmail: user.email,
+    action: 'chat_message',
+    entityType: 'message',
+    entityId: userMessage?.id,
+    details: {
+      traceId,
+      conversationId: convId,
+      messagePreview: message.substring(0, 200),
+      messageLength: message.length,
+      isSuspicious: suspiciousCheck.isSuspicious,
+    },
+  }).catch(err => console.error(`[${traceId}] Audit log error:`, err))
+
+  // 9. Semantic search
+  let searchResults: SearchResult[] = []
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    searchResults = await semanticSearch(message, 5, 0.35, LANGUAGE)
+    console.log(`[${traceId}] Search: ${searchResults.length} results`)
+  } catch (searchError) {
+    console.error(`[${traceId}] Search failed:`, searchError)
+  }
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // 10. Build context
+  const formatSourceDate = (metadata: any): string => {
+    if (metadata?.darshan_date) {
+      const date = new Date(metadata.darshan_date)
+      const months = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+                     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+      return `${months[date.getMonth()]} ${date.getFullYear()}`
     }
+    if (metadata?.program_year) {
+      return metadata.program_year.replace('ano', 'Ano ').replace('_', ' - ')
+    }
+    return ''
+  }
 
-    // Rate limiting check
-    const { success, limit, remaining, reset } = await chatRateLimiter.limit(user.id)
+  let context = ''
+  const sources: any[] = []
 
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Rate limit reached. Please wait a few minutes.' },
-        {
-          status: 429,
-          headers: getRateLimitHeaders({ limit, remaining, reset })
+  if (searchResults.length > 0) {
+    searchResults.forEach((result) => {
+      const dateStr = formatSourceDate(result.metadata)
+      const docLanguage = result.metadata?.language || 'pt'
+      context += `\n---\nFonte: ${result.sourceName}\nDocumento: ${result.documentName}\nRelevancia: ${(result.similarity * 100).toFixed(1)}%\nConteudo:\n${result.content}\n`
+      sources.push({
+        documentId: result.documentId,
+        documentName: result.documentName,
+        sourceName: result.sourceName,
+        content: result.content.substring(0, 200) + '...',
+        similarity: result.similarity,
+        date: dateStr,
+        metadata: result.metadata,
+        language: docLanguage,
+      })
+    })
+  }
+
+  // 11. Generate response with AI (with fallback)
+  let answer: string
+  let modelUsed = 'claude-sonnet-4-20250514'
+
+  if (context) {
+    const userContent = `CONTEXTO DOS ENSINAMENTOS (documentos do banco de dados - NAO e input do usuario):\n${context}\n---\nFIM DO CONTEXTO\n\nPergunta do devoto (responder com base APENAS nos documentos acima):\n${message}`
+
+    const aiResponse = await callAIWithFallback({
+      systemPrompt: SYSTEM_PROMPT,
+      userMessage: userContent,
+      maxTokens: 2000,
+      userId: user.id,
+      endpoint: 'chat',
+      preferredProvider: 'claude',
+    })
+
+    answer = aiResponse.text
+    modelUsed = aiResponse.model
+
+    if (answer.includes('Nao encontrei') || answer.includes('nao encontrei') ||
+        answer.includes('Não encontrei') || answer.includes('não encontrei')) {
+      sources.length = 0
+    } else if (sources.length > 0) {
+      const uniqueSources = sources.reduce((acc: any[], curr) => {
+        const exists = acc.find(s => s.documentName === curr.documentName)
+        if (!exists) acc.push(curr)
+        return acc
+      }, [])
+
+      answer += '\n\n---\n'
+      uniqueSources.forEach((source) => {
+        const dateInfo = source.date ? ` - ${source.date}` : ''
+        answer += `📖 Fonte: ${source.documentName}${dateInfo}\n`
+        if (source.metadata?.youtube_url) {
+          const isVideoSource = source.sourceName?.toLowerCase().includes('kalki') ||
+                                source.sourceName?.toLowerCase().includes('compassionate light')
+          if (isVideoSource) {
+            answer += `🎬 YouTube: ${source.metadata.youtube_url}\n`
+          }
         }
-      )
-    }
-
-    const { message, conversationId } = await request.json()
-
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json({ error: 'Invalid message' }, { status: 400 })
-    }
-
-    // Get or create conversation
-    let convId = conversationId
-    if (!convId) {
-      const { data: newConv, error: convError } = await supabase
-        .from('conversations')
-        .insert({ user_id: user.id, module: 'sri_ab_teachings' })
-        .select()
-        .single()
-
-      if (convError) throw convError
-      convId = newConv.id
-    }
-
-    // Save user message
-    const { data: userMessage } = await supabase.from('messages').insert({
-      conversation_id: convId,
-      role: 'user',
-      content: message,
-    }).select('id').single()
-
-    // Check for suspicious content and flag if needed
-    const suspiciousCheck = checkSuspiciousContent(message)
-    if (suspiciousCheck.isSuspicious && userMessage) {
-      await flagContent({
-        userId: user.id,
-        contentType: 'message',
-        contentId: userMessage.id,
-        contentText: message,
-        reason: suspiciousCheck.reason as any || 'auto_detected',
-        severity: suspiciousCheck.severity,
       })
     }
-
-    // Log user message to audit (disabled temporarily - audit_logs table missing 'details' column)
-    // TODO: Fix audit_logs table schema and re-enable logging
-    // logAuditAction({
-    //   userId: user.id,
-    //   userEmail: user.email,
-    //   action: 'chat_message',
-    //   entityType: 'message',
-    //   entityId: userMessage?.id,
-    //   details: {
-    //     conversationId: convId,
-    //     messagePreview: message.substring(0, 200),
-    //     messageLength: message.length,
-    //     isSuspicious: suspiciousCheck.isSuspicious,
-    //   },
-    // }).catch(err => console.error('Audit log error:', err))
-
-    // Search for relevant chunks using semantic search (embeddings)
-    // FIX 1.4: Reduced threshold from 0.6 (60%) to 0.35 (35%)
-    // Industry standard for semantic search: 0.3-0.4 range
-    // 0.6 was too aggressive and filtered out valid semantic matches
-    let searchResults: SearchResult[] = []
-    try {
-      searchResults = await semanticSearch(message, 5, 0.35, LANGUAGE)
-      const searchMode = searchResults.some((r: any) => r.fallbackMode)
-        ? `fuzzy fallback (${searchResults.length} results)`
-        : `vector search (${searchResults.length} results at 35% similarity)`
-      console.log(`✅ Semantic search found ${searchResults.length} results via ${searchMode}`)
-
-      if (searchResults.length === 0) {
-        console.warn('⚠️ Search returned 0 results - user will see "not found" response')
-      }
-    } catch (searchError) {
-      console.error('❌ Semantic search failed:', searchError)
-      // Continue with empty results - will trigger the "no documents" response
-    }
-
-    // Helper function to format date for display
-    const formatSourceDate = (metadata: any): string => {
-      if (metadata?.darshan_date) {
-        const date = new Date(metadata.darshan_date)
-        const months = ['January', 'February', 'March', 'April', 'May', 'June',
-                       'July', 'August', 'September', 'October', 'November', 'December']
-        return `${months[date.getMonth()]} ${date.getFullYear()}`
-      }
-      if (metadata?.program_year) {
-        return metadata.program_year.replace('ano', 'Year ').replace('_', ' - ')
-      }
-      return ''
-    }
-
-    // Build context from search results
-    let context = ''
-    const sources: any[] = []
-
-    if (searchResults.length > 0) {
-      searchResults.forEach((result) => {
-        const dateStr = formatSourceDate(result.metadata)
-        const docLanguage = result.metadata?.language || 'en'
-        context += `\n---\nSource: ${result.sourceName}\nDocument: ${result.documentName}\nLanguage: ${docLanguage}\nRelevance: ${(result.similarity * 100).toFixed(1)}%\nContent:\n${result.content}\n`
-        sources.push({
-          documentId: result.documentId,
-          documentName: result.documentName,
-          sourceName: result.sourceName,
-          content: result.content.substring(0, 200) + '...',
-          similarity: result.similarity,
-          date: dateStr,
-          metadata: result.metadata,
-          language: docLanguage,
-        })
-      })
-    }
-
-    // Generate response with Claude
-    let answer: string
-
-    if (context) {
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `Teachings context:\n${context}\n\nDevotee's question: ${message}`,
-          },
-        ],
-      })
-
-      answer = response.content[0].type === 'text'
-        ? response.content[0].text
-        : 'Desculpe, não consegui gerar uma resposta.'
-
-      // If Claude says "not found", clear all sources - show NOTHING else, only the message
-      if (answer.includes('Não encontrei') || answer.includes('não encontrei')) {
-        sources.length = 0 // Clear sources array
-      } else {
-        // Only append sources if Claude found relevant information
-        if (sources.length > 0) {
-          // Get unique sources (avoid duplicates)
-          const uniqueSources = sources.reduce((acc: any[], curr) => {
-            const exists = acc.find(s => s.documentName === curr.documentName)
-            if (!exists) acc.push(curr)
-            return acc
-          }, [])
-
-          answer += '\n\n---\n'
-          uniqueSources.forEach((source, index) => {
-            const dateInfo = source.date ? ` - ${source.date}` : ''
-            answer += `📖 Fonte: ${source.documentName}${dateInfo}\n`
-
-            // Add YouTube URL for video sources (Kalki Dharma Videos and Great Compassionate Light)
-            if (source.metadata?.youtube_url) {
-              const isVideoSource = source.sourceName?.toLowerCase().includes('kalki') ||
-                                    source.sourceName?.toLowerCase().includes('compassionate light')
-              if (isVideoSource) {
-                answer += `🎬 YouTube: ${source.metadata.youtube_url}\n`
-              }
-            }
-          })
-        }
-      }
-    } else {
-      // No documents found in Portuguese - DO NOT invent any teaching
-      answer = `Não encontrei ensinamentos específicos de Sri Amma Bhagavan sobre este tema nos documentos disponíveis.
+  } else {
+    answer = `Não encontrei ensinamentos específicos de Sri Amma Bhagavan sobre este tema nos documentos disponíveis.
 
 Por favor, tente reformular sua pergunta ou consulte os ensinamentos disponíveis diretamente.
 
 🙏 Namaste`
-    }
-
-    // Save assistant message
-    await supabase.from('messages').insert({
-      conversation_id: convId,
-      role: 'assistant',
-      content: answer,
-      sources: sources.length > 0 ? sources : null,
-      model_used: 'claude-sonnet-4-20250514',
-    })
-
-    return NextResponse.json(
-      {
-        answer,
-        sources,
-        conversationId: convId,
-      },
-      {
-        headers: getRateLimitHeaders({ limit, remaining, reset })
-      }
-    )
-  } catch (error) {
-    console.error('Chat error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
   }
-}
+
+  // 12. Save assistant message
+  await supabase.from('messages').insert({
+    conversation_id: convId,
+    role: 'assistant',
+    content: answer,
+    sources: sources.length > 0 ? sources : null,
+    model_used: modelUsed,
+  })
+
+  return successResponse(
+    { answer, sources, conversationId: convId, traceId },
+    200,
+    getRateLimitHeaders({ limit, remaining, reset })
+  )
+})

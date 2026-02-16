@@ -65,6 +65,13 @@ interface CustomPrompt {
   usage_count: number
 }
 
+export interface ContentGeneratorProps {
+  category: string
+  title: string
+  icon: LucideIcon
+  promptsPath: string
+}
+
 const ICON_MAP: Record<string, LucideIcon> = {
   sparkles: Sparkles,
   heart: Heart,
@@ -114,7 +121,7 @@ const AI_PROVIDERS = [
   },
 ]
 
-export default function DailyTeachingPage() {
+export default function ContentGeneratorPage({ category, title, icon: PageIcon, promptsPath }: ContentGeneratorProps) {
   const router = useRouter()
   const { showToast } = useToast()
   const { confirm } = useConfirm()
@@ -148,8 +155,6 @@ export default function DailyTeachingPage() {
   // Prompts state
   const [prompts, setPrompts] = useState<CustomPrompt[]>([])
   const [selectedPrompt, setSelectedPrompt] = useState<CustomPrompt | null>(null)
-  const [showPromptDropdown, setShowPromptDropdown] = useState(false)
-  const [promptFilter, setPromptFilter] = useState('')
 
   // AI Provider state
   const [selectedAI, setSelectedAI] = useState<string>('claude')
@@ -159,13 +164,13 @@ export default function DailyTeachingPage() {
   useEffect(() => {
     loadHistory()
     loadPrompts()
-  }, [])
+  }, [category])
 
 
   const loadHistory = async () => {
     setLoadingHistory(true)
     try {
-      const response = await fetch('/api/daily-message?limit=300&category=daily-teaching')
+      const response = await fetch(`/api/daily-message?limit=300&category=${encodeURIComponent(category)}`)
       const data = await response.json()
       if (data.messages) {
         setHistory(data.messages)
@@ -179,7 +184,7 @@ export default function DailyTeachingPage() {
 
   const loadPrompts = async () => {
     try {
-      const response = await fetch('/api/prompts?category=daily-teaching')
+      const response = await fetch(`/api/prompts?category=${category}`)
       const data = await response.json()
       if (data.prompts) {
         setPrompts(data.prompts)
@@ -192,7 +197,6 @@ export default function DailyTeachingPage() {
   const handleSelectPrompt = (prompt: CustomPrompt) => {
     setSelectedPrompt(prompt)
     setTopic('')
-    setShowPromptDropdown(false)
     inputRef.current?.focus()
   }
 
@@ -224,7 +228,6 @@ export default function DailyTeachingPage() {
 
       if (data.results) {
         setSearchResults(data.results)
-        // Auto-select top 3 chunks by similarity
         const topChunks = data.results
           .sort((a: SearchResult, b: SearchResult) => (b.similarity || 0) - (a.similarity || 0))
           .slice(0, 3)
@@ -284,6 +287,7 @@ export default function DailyTeachingPage() {
           promptId: selectedPrompt?.id,
           customPrompt: selectedPrompt?.system_prompt,
           aiProvider: selectedAI,
+          category,
         }),
       })
 
@@ -292,7 +296,6 @@ export default function DailyTeachingPage() {
         throw new Error(errData.error || `Erro ${response.status}`)
       }
 
-      // Check if JSON (non-streaming response)
       const contentType = response.headers.get('content-type')
       if (contentType?.includes('application/json')) {
         const data = await response.json()
@@ -303,7 +306,6 @@ export default function DailyTeachingPage() {
         return
       }
 
-      // SSE streaming
       const reader = response.body?.getReader()
       if (!reader) throw new Error('Sem resposta do servidor')
 
@@ -379,7 +381,6 @@ export default function DailyTeachingPage() {
   const handleSaveEdit = async () => {
     setGeneratedMessage(editedMessage)
     setIsEditing(false)
-    // Update in database if we have an ID
     if (currentMessageId) {
       try {
         await fetch(`/api/daily-message`, {
@@ -401,8 +402,8 @@ export default function DailyTeachingPage() {
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Excluir Ensinamento',
-      message: 'Tem certeza que deseja excluir este ensinamento? Esta ação não pode ser desfeita.',
+      title: 'Excluir Mensagem',
+      message: 'Tem certeza que deseja excluir esta mensagem? Esta ação não pode ser desfeita.',
       confirmText: 'Excluir',
       cancelText: 'Cancelar',
       variant: 'danger',
@@ -412,7 +413,7 @@ export default function DailyTeachingPage() {
 
     try {
       await fetch(`/api/daily-message?id=${id}`, { method: 'DELETE' })
-      showToast('Ensinamento excluído com sucesso', 'success')
+      showToast('Mensagem excluída com sucesso', 'success')
       loadHistory()
       if (currentMessageId === id) {
         setGeneratedMessage('')
@@ -420,7 +421,7 @@ export default function DailyTeachingPage() {
       }
     } catch (error) {
       console.error('Error deleting:', error)
-      showToast('Falha ao excluir ensinamento', 'error')
+      showToast('Falha ao excluir mensagem', 'error')
     }
   }
 
@@ -451,7 +452,6 @@ export default function DailyTeachingPage() {
       const data = await response.json()
       if (data.results) {
         setSearchResults(data.results)
-        // Auto-select top 3
         const topChunks = data.results
           .sort((a: SearchResult, b: SearchResult) => (b.similarity || 0) - (a.similarity || 0))
           .slice(0, 3)
@@ -492,12 +492,6 @@ export default function DailyTeachingPage() {
       )
     : history
 
-  const filteredPrompts = prompts.filter(p =>
-    p.name.toLowerCase().includes(promptFilter) ||
-    p.slug.includes(promptFilter) ||
-    p.description?.toLowerCase().includes(promptFilter)
-  )
-
   const getPromptIcon = (iconName: string) => ICON_MAP[iconName] || Sparkles
   const getPromptColor = (colorName: string) => COLOR_MAP[colorName] || 'bg-sage-500'
   const selectedAIProvider = AI_PROVIDERS.find(p => p.id === selectedAI) || AI_PROVIDERS[0]
@@ -516,7 +510,7 @@ export default function DailyTeachingPage() {
               className="w-full flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-sage-500 to-sage-400 hover:from-sage-600 hover:to-sage-500 text-white rounded-2xl transition-all duration-300 shadow-sage hover:shadow-sage-lg transform hover:-translate-y-0.5"
             >
               <Plus size={18} />
-              <span className="font-semibold">Novo Ensinamento</span>
+              <span className="font-semibold">Nova Mensagem</span>
             </button>
           </div>
 
@@ -573,7 +567,7 @@ export default function DailyTeachingPage() {
                       }
                     `}
                   >
-                    <Sparkles size={16} className={`flex-shrink-0 ${currentMessageId === msg.id ? 'text-sage-600 dark:text-sage-400' : 'text-gray-400'}`} />
+                    <PageIcon size={16} className={`flex-shrink-0 ${currentMessageId === msg.id ? 'text-sage-600 dark:text-sage-400' : 'text-gray-400'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate font-medium">{msg.topic}</p>
                       <p className="text-xs text-gray-400">{formatDate(msg.created_at)}</p>
@@ -608,10 +602,10 @@ export default function DailyTeachingPage() {
             </button>
             <div className="flex items-center gap-3 flex-1">
               <div className="w-9 h-9 bg-gradient-to-br from-sage-400 to-sage-600 rounded-2xl flex items-center justify-center shadow-sage">
-                <Sparkles className="text-white" size={18} />
+                <PageIcon className="text-white" size={18} />
               </div>
               <div>
-                <h1 className="font-bold text-gray-800 dark:text-gray-100 text-sm tracking-tight">Ensinamento Diário</h1>
+                <h1 className="font-bold text-gray-800 dark:text-gray-100 text-sm tracking-tight">{title}</h1>
                 <p className="text-xs text-sage-600 dark:text-sage-400 font-medium">
                   Digite <span className="font-mono bg-sage-100 dark:bg-sage-900/30 px-1 rounded">/</span> para prompts
                 </p>
@@ -631,7 +625,7 @@ export default function DailyTeachingPage() {
 
             {/* Settings & Prompts */}
             <button
-              onClick={() => router.push('/app/daily-teaching/prompts')}
+              onClick={() => router.push(promptsPath)}
               className="p-2.5 hover:bg-sage-50 dark:hover:bg-sage-900/20 rounded-xl transition-all duration-200 text-gray-600 dark:text-gray-400 hover:text-sage-600 dark:hover:text-sage-400"
               title="Gerenciar Prompts"
             >
@@ -697,7 +691,7 @@ export default function DailyTeachingPage() {
                   Escolha um Prompt
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Selecione o estilo do ensinamento que deseja gerar
+                  Selecione o estilo do conteúdo que deseja gerar
                 </p>
 
                 <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
@@ -721,7 +715,7 @@ export default function DailyTeachingPage() {
 
                 <div className="flex justify-end mt-3">
                   <button
-                    onClick={() => router.push('/app/daily-teaching/prompts')}
+                    onClick={() => router.push(promptsPath)}
                     className="flex items-center gap-1.5 text-xs text-sage-600 dark:text-sage-400 hover:text-sage-700 dark:hover:text-sage-300 font-medium transition-colors"
                   >
                     <Settings size={12} />
@@ -757,7 +751,7 @@ export default function DailyTeachingPage() {
               )}
 
               <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-                {selectedPrompt ? `Usando: ${selectedPrompt.name}` : 'Qual tema para o ensinamento?'}
+                {selectedPrompt ? `Usando: ${selectedPrompt.name}` : 'Qual tema para o conteúdo?'}
               </h2>
 
               <form onSubmit={handleSearch} className="relative">
@@ -769,7 +763,7 @@ export default function DailyTeachingPage() {
                       type="text"
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
-                      placeholder="Digite o tema do ensinamento..."
+                      placeholder="Digite o tema..."
                       className="w-full pl-12 pr-4 py-4 border border-sage-100/50 dark:border-sage-800/30 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl focus:ring-2 focus:ring-sage-400 dark:focus:ring-sage-600 focus:border-transparent outline-none transition-all duration-300 placeholder-gray-400"
                       disabled={searching}
                     />
@@ -895,7 +889,7 @@ export default function DailyTeachingPage() {
                     <X size={20} className="text-red-500" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-bold text-red-800 dark:text-red-300 mb-1">Erro ao gerar ensinamento</h3>
+                    <h3 className="font-bold text-red-800 dark:text-red-300 mb-1">Erro ao gerar</h3>
                     <p className="text-sm text-red-600 dark:text-red-400 mb-3">{generateError}</p>
                     <button
                       onClick={() => handleGenerate()}
@@ -915,7 +909,7 @@ export default function DailyTeachingPage() {
                 <div className="px-6 py-4 border-b border-sage-100/50 dark:border-sage-800/30 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-gray-800 dark:text-gray-100">
-                      Ensinamento Diário
+                      {title}
                     </h3>
                     {generating && (
                       <span className="flex items-center gap-1.5 px-2.5 py-1 bg-sage-100 dark:bg-sage-900/30 rounded-full text-xs font-medium text-sage-600 dark:text-sage-400">
@@ -931,17 +925,15 @@ export default function DailyTeachingPage() {
                   </div>
                   {!generating && generatedMessage && (
                     <div className="flex items-center gap-1.5">
-                      {/* Regenerate same chunks */}
                       <button
                         onClick={handleRegenerateMessage}
                         disabled={generating}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 hover:bg-sage-50 dark:hover:bg-sage-900/20 text-gray-500 dark:text-gray-400 text-sm font-medium"
-                        title="Gerar novamente com os mesmos ensinamentos"
+                        title="Gerar novamente"
                       >
                         <Sparkles size={14} />
                         Gerar novamente
                       </button>
-                      {/* Edit toggle */}
                       {!isEditing ? (
                         <button
                           onClick={handleStartEdit}
@@ -967,7 +959,6 @@ export default function DailyTeachingPage() {
                           </button>
                         </>
                       )}
-                      {/* New search */}
                       <button
                         onClick={handleRegenerate}
                         disabled={searching}
@@ -977,7 +968,6 @@ export default function DailyTeachingPage() {
                         {searching ? <Loader2 className="animate-spin" size={14} /> : <Search size={14} />}
                         Nova busca
                       </button>
-                      {/* Copy */}
                       <button
                         onClick={handleCopy}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 text-sm font-medium ${

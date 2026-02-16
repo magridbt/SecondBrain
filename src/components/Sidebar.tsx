@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Settings, Users, FileText, LogOut, Menu, X, Sun, Moon, Activity, Sparkles } from 'lucide-react'
+import { MessageSquare, Settings, Users, FileText, LogOut, Menu, X, Sun, Moon, Activity, Sparkles, ChevronRight, Share2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -60,21 +60,6 @@ export default function Sidebar({ user, profile }: SidebarProps) {
     router.push('/login')
     router.refresh()
   }
-
-  const navItems = [
-    {
-      name: 'Ensinamentos Sri AB',
-      href: '/app/chat',
-      icon: MessageSquare,
-      active: pathname.startsWith('/app/chat'),
-    },
-    {
-      name: 'Ensinamento Diário',
-      href: '/app/daily-teaching',
-      icon: Sparkles,
-      active: pathname.startsWith('/app/daily-teaching'),
-    },
-  ]
 
   const adminItems = [
     {
@@ -147,32 +132,54 @@ export default function Sidebar({ user, profile }: SidebarProps) {
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 px-3">
-            Módulos
+        {/* Module Selector - compact toggle */}
+        <div className="px-4 pt-4 pb-2">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 px-1">
+            Módulo Ativo
           </p>
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-lg transition
-                ${item.active
-                  ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-500'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                }
-              `}
-            >
-              <item.icon size={20} />
-              <span className="font-medium">{item.name}</span>
-            </Link>
-          ))}
+          <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-2.5 flex items-center gap-3">
+            <MessageSquare size={18} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+            <span className="text-sm font-semibold text-green-700 dark:text-green-400 flex-1">
+              Ensinamentos Sri AB
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setMobileOpen(false)
+              router.push('/app/daily-teaching')
+            }}
+            className={`mt-1.5 w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-all group ${
+              pathname.startsWith('/app/daily-teaching')
+                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Sparkles size={18} className="flex-shrink-0" />
+            <span className="text-sm font-medium flex-1 text-left">Ensinamento Diário</span>
+            <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+          <button
+            onClick={() => {
+              setMobileOpen(false)
+              router.push('/app/social-media')
+            }}
+            className={`mt-1.5 w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-all group ${
+              pathname.startsWith('/app/social-media')
+                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Share2 size={18} className="flex-shrink-0" />
+            <span className="text-sm font-medium flex-1 text-left">Redes Sociais</span>
+            <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+        </div>
 
+        {/* Navigation - admin items only */}
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {isAdmin && (
             <>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mt-6 mb-3 px-3">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 px-3">
                 Administração
               </p>
               {adminItems.map((item) => (

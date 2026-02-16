@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, FileText, Trash2, Loader2, Search, Type, RefreshCw, Eye } from 'lucide-react'
 
@@ -143,20 +143,24 @@ export default function DocumentsPage() {
   }, [])
 
   // Auto-refresh when there are documents processing or pending
+  // Use a ref to track processing state to avoid re-render loops
+  const hasProcessingRef = useRef(false)
   useEffect(() => {
-    const hasProcessing = documents.some(
+    hasProcessingRef.current = documents.some(
       doc => doc.status === 'processing' || doc.status === 'pending'
     )
-
-    if (hasProcessing) {
-      const interval = setInterval(() => {
-        loadData()
-      }, 3000) // Refresh every 3 seconds
-
-      return () => clearInterval(interval)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documents])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (hasProcessingRef.current) {
+        loadData()
+      }
+    }, 10000) // Refresh every 10 seconds (was 3s, caused freezing)
+
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadData = async () => {
     setLoading(true)

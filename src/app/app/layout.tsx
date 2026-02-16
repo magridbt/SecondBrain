@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Sidebar from '@/components/Sidebar'
+import AppLayoutClient from '@/components/AppLayoutClient'
 
 export default async function AppLayout({
   children,
@@ -21,11 +21,8 @@ export default async function AppLayout({
     .single()
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-800">
-      <Sidebar user={user} profile={profile} />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
+    <AppLayoutClient user={user} profile={profile}>
+      {children}
+    </AppLayoutClient>
   )
 }

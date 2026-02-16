@@ -14,11 +14,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
+    const category = searchParams.get('category') || 'daily-teaching'
 
     const { data: messages, error } = await supabase
       .from('daily_messages')
       .select('id, topic, generated_message, language, status, created_at')
       .eq('user_id', user.id)
+      .eq('category', category)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -34,6 +36,40 @@ export async function GET(request: Request) {
       { error: 'Failed to fetch message history' },
       { status: 500 }
     )
+  }
+}
+
+// PATCH - Update a message (edit generated text)
+export async function PATCH(request: Request) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id, generated_message } = await request.json()
+
+    if (!id || !generated_message) {
+      return NextResponse.json({ error: 'ID and message are required' }, { status: 400 })
+    }
+
+    const { error } = await supabase
+      .from('daily_messages')
+      .update({ generated_message, status: 'edited' })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Update error:', error)
+      return NextResponse.json({ error: 'Failed to update message' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Update error:', error)
+    return NextResponse.json({ error: 'Failed to update message' }, { status: 500 })
   }
 }
 

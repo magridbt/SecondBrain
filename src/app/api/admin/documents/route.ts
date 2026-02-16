@@ -41,7 +41,13 @@ export async function POST(request: Request) {
 
     const fileExt = file.name.split('.').pop()?.toLowerCase()
     const fileType = fileExt === 'pdf' ? 'pdf' : (fileExt === 'doc' || fileExt === 'docx') ? 'word' : 'text'
-    const fileName = `${Date.now()}-${file.name}`
+    // Sanitize filename: remove accents/special chars, replace spaces with hyphens
+    const sanitizedName = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '-')
+      .replace(/-+/g, '-')
+    const fileName = `${Date.now()}-${sanitizedName}`
 
     // Upload para storage usando admin client
     const fileBuffer = await file.arrayBuffer()

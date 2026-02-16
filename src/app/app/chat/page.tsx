@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Sparkles, Plus, Trash2, MessageSquare, Menu, X } from 'lucide-react'
+import { Send, Loader2, Sparkles, Plus, Trash2, MessageSquare, Menu, X, Search, Bot } from 'lucide-react'
 import ChatMessage from '@/components/ChatMessage'
 
 interface Message {
@@ -11,6 +11,7 @@ interface Message {
   sources?: any[]
   searchQuery?: string
   created_at: string
+  isStreaming?: boolean
 }
 
 interface Conversation {
@@ -21,6 +22,8 @@ interface Conversation {
   messageCount: number
 }
 
+type ChatMode = 'search' | 'ai'
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -29,7 +32,9 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loadingConversations, setLoadingConversations] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [chatMode, setChatMode] = useState<ChatMode>('search')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -110,23 +115,26 @@ export default function ChatPage() {
     setInput('')
     setLoading(true)
 
+    if (chatMode === 'ai') {
+      await handleAIStream(userMessage)
+    } else {
+      await handleSearch(userMessage)
+    }
+  }
+
+  // ========== MODO BUSCA (original) ==========
+  const handleSearch = async (userMessage: Message) => {
     try {
-      // Use Pure Search API instead of Chat API (no Claude dependency)
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: userMessage.content,
-        }),
+        body: JSON.stringify({ query: userMessage.content }),
       })
 
-      if (!response.ok) {
-        throw new Error('Error searching documents')
-      }
+      if (!response.ok) throw new Error('Error searching documents')
 
       const data = await response.json()
 
-      // Format response for display
       const assistantMessage: Message = {
         id: Date.now().toString() + '-assistant',
         role: 'assistant',
@@ -134,56 +142,151 @@ export default function ChatPage() {
           ? `Encontrei ${data.totalResults} resultado(s) relevante(s) para sua pergunta.`
           : 'Nenhum resultado encontrado. Tente reformular sua pergunta.',
         sources: data.results,
-        searchQuery: userMessage.content, // Pass the search query for keyword highlighting
+        searchQuery: userMessage.content,
         created_at: new Date().toISOString(),
       }
 
       setMessages((prev) => [...prev, assistantMessage])
 
-      // ========== SALVAR CONVERSA NO BANCO DE DADOS ==========
+      // Save conversation
       try {
-        // Se não há conversa em andamento, criar uma nova
         if (!conversationId) {
-          const createConvResponse = await fetch('/api/conversations', {
+          const res = await fetch('/api/conversations', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: [userMessage, assistantMessage],
-            }),
+            body: JSON.stringify({ messages: [userMessage, assistantMessage] }),
           })
-
-          if (createConvResponse.ok) {
-            const convData = await createConvResponse.json()
-            setConversationId(convData.conversation.id)
-            // Recarregar lista de conversas
+          if (res.ok) {
+            const data = await res.json()
+            setConversationId(data.conversation.id)
             loadConversations()
           }
         } else {
-          // Se já existe conversa, adicionar mensagens
           await fetch(`/api/conversations/${conversationId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: [userMessage, assistantMessage],
-            }),
+            body: JSON.stringify({ messages: [userMessage, assistantMessage] }),
           })
         }
-      } catch (saveError) {
-        console.error('Erro ao salvar conversa:', saveError)
-        // Não falha a busca se salvar a conversa falhar
+      } catch (e) {
+        console.error('Save error:', e)
       }
-      // ========== FIM SALVAR CONVERSA ==========
     } catch (error) {
       console.error('Error:', error)
-      const errorMessage: Message = {
+      setMessages((prev) => [...prev, {
         id: Date.now().toString() + '-error',
         role: 'assistant',
         content: 'Desculpe, ocorreu um erro. Tente novamente.',
         created_at: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
+      }])
     } finally {
       setLoading(false)
+    }
+  }
+
+  // ========== MODO IA COM STREAMING ==========
+  const handleAIStream = async (userMessage: Message) => {
+    const assistantId = Date.now().toString() + '-assistant'
+
+    // Add empty assistant message that will be filled via streaming
+    setMessages((prev) => [...prev, {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+      isStreaming: true,
+    }])
+
+    try {
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
+      const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage.content,
+          conversationId,
+        }),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao conectar com IA')
+      }
+
+      // Check if it's a JSON response (no context found)
+      const contentType = response.headers.get('content-type')
+      if (contentType?.includes('application/json')) {
+        const data = await response.json()
+        setMessages((prev) => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, content: data.answer, sources: data.sources || [], isStreaming: false }
+            : m
+        ))
+        setLoading(false)
+        return
+      }
+
+      // SSE streaming
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No reader')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+
+            if (event.type === 'sources') {
+              setMessages((prev) => prev.map(m =>
+                m.id === assistantId ? { ...m, sources: event.sources } : m
+              ))
+            } else if (event.type === 'text') {
+              setMessages((prev) => prev.map(m =>
+                m.id === assistantId ? { ...m, content: m.content + event.text } : m
+              ))
+            } else if (event.type === 'done') {
+              if (event.conversationId) {
+                setConversationId(event.conversationId)
+                loadConversations()
+              }
+              setMessages((prev) => prev.map(m =>
+                m.id === assistantId ? { ...m, isStreaming: false } : m
+              ))
+            } else if (event.type === 'error') {
+              setMessages((prev) => prev.map(m =>
+                m.id === assistantId
+                  ? { ...m, content: event.error || 'Erro ao gerar resposta', isStreaming: false }
+                  : m
+              ))
+            }
+          } catch (e) {
+            // Skip malformed events
+          }
+        }
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') return
+      console.error('Stream error:', error)
+      setMessages((prev) => prev.map(m =>
+        m.id === assistantId
+          ? { ...m, content: 'Desculpe, ocorreu um erro. Tente novamente.', isStreaming: false }
+          : m
+      ))
+    } finally {
+      setLoading(false)
+      abortControllerRef.current = null
     }
   }
 
@@ -290,6 +393,32 @@ export default function ChatPage() {
               <p className="text-xs text-gray-500 dark:text-gray-400">Ensinamentos de Sri Amma Bhagavan</p>
             </div>
           </div>
+
+          {/* Mode Toggle */}
+          <div className="ml-auto flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setChatMode('search')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                chatMode === 'search'
+                  ? 'bg-white dark:bg-gray-700 text-green-700 dark:text-green-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <Search size={14} />
+              Busca
+            </button>
+            <button
+              onClick={() => setChatMode('ai')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                chatMode === 'ai'
+                  ? 'bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-400 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <Bot size={14} />
+              IA Claude
+            </button>
+          </div>
         </header>
 
         {/* Messages */}
@@ -323,7 +452,7 @@ export default function ChatPage() {
               {messages.map((message) => (
                 <ChatMessage key={message.id} message={message} />
               ))}
-              {loading && (
+              {loading && chatMode === 'search' && (
                 <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
                   <div className="flex gap-1">
                     <span className="typing-dot w-2 h-2 bg-green-500 rounded-full"></span>
@@ -331,6 +460,16 @@ export default function ChatPage() {
                     <span className="typing-dot w-2 h-2 bg-green-500 rounded-full"></span>
                   </div>
                   <span className="text-sm">Buscando nos ensinamentos...</span>
+                </div>
+              )}
+              {loading && chatMode === 'ai' && !messages.some(m => m.isStreaming && m.content) && (
+                <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                  <div className="flex gap-1">
+                    <span className="typing-dot w-2 h-2 bg-purple-500 rounded-full"></span>
+                    <span className="typing-dot w-2 h-2 bg-purple-500 rounded-full"></span>
+                    <span className="typing-dot w-2 h-2 bg-purple-500 rounded-full"></span>
+                  </div>
+                  <span className="text-sm">Claude está meditando nos ensinamentos...</span>
                 </div>
               )}
               <div ref={messagesEndRef} />
