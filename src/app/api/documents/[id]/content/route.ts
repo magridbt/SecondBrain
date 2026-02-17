@@ -54,7 +54,7 @@ export async function GET(
     return NextResponse.json({
       id: document.id,
       name: document.name,
-      source: document.teaching_sources?.name || 'Unknown',
+      source: (document.teaching_sources as any)?.name || 'Unknown',
       date: document.metadata?.darshan_date,
       content: chunks,
       metadata: document.metadata,

@@ -57,9 +57,9 @@ export async function POST(
       .eq('id', conversationId)
 
     return NextResponse.json({ success: true, messageCount: messages.length })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Add messages error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to add messages' }, { status: 500 })
   }
 }
 
@@ -100,8 +100,8 @@ export async function GET(
     if (error) throw error
 
     return NextResponse.json({ messages: messages || [] })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Load messages error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to load messages' }, { status: 500 })
   }
 }

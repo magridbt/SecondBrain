@@ -145,7 +145,7 @@ export async function POST(request: Request) {
 }
 
 // GET - List documents
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -153,6 +153,22 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    // Pagination params
+    const { searchParams } = new URL(request.url)
+    const limit = Math.min(parseInt(searchParams.get('limit') || '500'), 500)
+    const offset = parseInt(searchParams.get('offset') || '0')
 
     // Use admin client to see all documents
     const adminClient = createAdminClient()
@@ -164,9 +180,10 @@ export async function GET() {
       .order('metadata->darshan_date', { ascending: false, nullsFirst: false })
       .order('metadata->program_year', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch documents' }, { status: 500 })
     }
 
     return NextResponse.json({ documents })

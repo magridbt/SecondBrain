@@ -2,41 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { semanticSearch, SearchResult } from '@/lib/semantic-search'
 import { chatRateLimiter } from '@/lib/ratelimit'
-import { checkUsageLimit } from '@/lib/token-tracking'
-import { trackTokenUsage } from '@/lib/token-tracking'
+import { checkUsageLimit, trackTokenUsage } from '@/lib/token-tracking'
+import { SYSTEM_PROMPT } from '@/lib/constants/prompts'
 
 const LANGUAGE = 'pt'
-
-const SYSTEM_PROMPT = `You are a faithful assistant that transmits ONLY the authentic teachings of Sri Amma Bhagavan.
-
-ABSOLUTE AND NON-NEGOTIABLE RULES:
-
-1. FIDELITY TO SOURCE: You may ONLY use information that is EXPLICITLY present in the provided context.
-   - NEVER invent, deduce, extrapolate, or add teachings that are not in the context
-   - NEVER mix teachings from other spiritual traditions or masters
-   - NEVER paraphrase in a way that changes the original meaning
-
-2. WHEN YOU DON'T FIND INFORMATION:
-   - If the context doesn't contain relevant information, respond EXACTLY:
-     "Não encontrei um ensinamento específico de Sri Amma Bhagavan sobre este tema nos documentos disponíveis. Por favor, tente reformular sua pergunta ou consulte os ensinamentos disponíveis diretamente."
-   - NEVER try to "help" by inventing or guessing what the teaching might be
-
-3. HONESTY AND HUMILITY:
-   - If the context is partial or unclear, say: "O contexto disponível menciona este tema mas não fornece uma resposta completa."
-   - NEVER use phrases like "I believe", "probably", "maybe Sri Bhagavan would say"
-   - NEVER add personal interpretations or conclusions
-
-4. TONE AND LANGUAGE:
-   - Use a serene, compassionate, and respectful tone
-   - Answer ONLY in Portuguese
-   - Be faithful to the original terminology used by Sri Amma Bhagavan
-
-5. FORMAT:
-   - Be concise but complete - use only what is in the context
-   - DO NOT include source citations - they will be added automatically
-   - When quoting directly, use quotation marks
-
-Remember: It is better to say "I don't have this information" than to invent something. The integrity of Sri Amma Bhagavan's teachings is sacred and must be preserved.`
 
 export async function POST(request: Request) {
   try {
@@ -93,8 +62,8 @@ export async function POST(request: Request) {
 
     // If no context, return non-streaming response
     if (!context) {
-      const noResultAnswer = `Não encontrei ensinamentos específicos de Sri Amma Bhagavan sobre este tema nos documentos disponíveis.\n\nPor favor, tente reformular sua pergunta ou consulte os ensinamentos disponíveis diretamente.\n\n🙏 Namaste`
-      return new Response(JSON.stringify({ answer: noResultAnswer, sources: [], done: true }), {
+      const { NO_RESULTS_ANSWER } = await import('@/lib/constants/prompts')
+      return new Response(JSON.stringify({ answer: NO_RESULTS_ANSWER, sources: [], done: true }), {
         headers: { 'Content-Type': 'application/json' },
       })
     }

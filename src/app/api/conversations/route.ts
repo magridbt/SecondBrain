@@ -56,9 +56,9 @@ export async function POST(request: Request) {
         messageCount: messages.length,
       }
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Create conversation error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
 }
 
@@ -109,9 +109,9 @@ export async function GET() {
     }) || []
 
     return NextResponse.json({ conversations: formattedConversations })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Conversations error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })
   }
 }
 
@@ -179,8 +179,8 @@ export async function DELETE(request: Request) {
     })
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Delete conversation error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete conversation' }, { status: 500 })
   }
 }
