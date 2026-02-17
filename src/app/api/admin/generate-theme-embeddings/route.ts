@@ -13,13 +13,13 @@ export async function POST() {
     }
 
     // Check if user is admin
-    const { data: member } = await supabase
-      .from('members')
+    const { data: profile } = await supabase
+      .from('profiles')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single()
 
-    if (member?.role !== 'admin') {
+    if (profile?.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -34,8 +34,7 @@ export async function POST() {
     })
   } catch (error) {
     console.error('Error generating theme embeddings:', error)
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to generate theme embeddings' }, { status: 500 })
   }
 }
 
@@ -49,6 +48,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
     const { data: themes, error } = await supabase
       .from('themes')
       .select('slug, name_en, embedding')
@@ -56,7 +66,7 @@ export async function GET() {
       .order('display_order')
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch themes' }, { status: 500 })
     }
 
     const withEmbedding = themes?.filter(t => t.embedding !== null).length || 0
@@ -73,7 +83,7 @@ export async function GET() {
       }))
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('Error fetching theme status:', error)
+    return NextResponse.json({ error: 'Failed to fetch theme status' }, { status: 500 })
   }
 }

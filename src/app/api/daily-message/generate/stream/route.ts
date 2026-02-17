@@ -260,11 +260,11 @@ export async function POST(request: Request) {
             ai_provider: provider,
             ai_model: result.model,
           })}\n\n`))
-        } catch (err: any) {
+        } catch (err) {
           console.error('Stream generation error:', err)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             type: 'error',
-            error: err?.message || 'Erro ao gerar mensagem',
+            error: 'Erro ao gerar mensagem',
           })}\n\n`))
         }
 

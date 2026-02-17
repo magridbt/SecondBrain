@@ -3,18 +3,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-// Rate limiter: 3 password reset requests per 15 minutes per IP
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-})
+// Lazy rate limiter: 3 password reset requests per 15 minutes per IP
+let _resetRateLimiter: Ratelimit | null = null
 
-const resetRateLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(3, '15 m'),
-  analytics: true,
-  prefix: 'ratelimit:reset-password',
-})
+function getResetRateLimiter(): Ratelimit {
+  if (!_resetRateLimiter) {
+    const redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
+    _resetRateLimiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(3, '15 m'),
+      analytics: true,
+      prefix: 'ratelimit:reset-password',
+    })
+  }
+  return _resetRateLimiter
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +30,7 @@ export async function POST(request: NextRequest) {
                'unknown'
 
     // Check rate limit
-    const { success, limit, reset, remaining } = await resetRateLimiter.limit(ip)
+    const { success, limit, reset, remaining } = await getResetRateLimiter().limit(ip)
 
     if (!success) {
       return NextResponse.json(
