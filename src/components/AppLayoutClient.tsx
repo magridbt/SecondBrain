@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { MessageSquare, Sparkles, Share2, FileText, Users, Activity, Settings, Sun, Moon, LogOut } from 'lucide-react'
+import { MessageSquare, Sparkles, Share2, GraduationCap, FileText, Users, Activity, Settings, Sun, Moon, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -45,6 +45,13 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
       href: '/app/social-media',
       icon: Share2,
       active: pathname.startsWith('/app/social-media'),
+    },
+    {
+      name: 'Cursos',
+      shortName: 'Cursos',
+      href: '/app/cursos',
+      icon: GraduationCap,
+      active: pathname.startsWith('/app/cursos'),
     },
   ]
 
