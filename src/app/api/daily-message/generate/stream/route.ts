@@ -181,17 +181,27 @@ export async function POST(request: Request) {
 
     const { topic, selectedChunks, promptId, customPrompt, aiProvider, category = 'daily-teaching' } = await request.json()
 
-    if (!topic || !selectedChunks?.length) {
+    if (!topic) {
       return new Response(JSON.stringify({ error: 'Dados inválidos' }), { status: 400 })
     }
 
-    const systemPrompt = customPrompt || DEFAULT_PROMPT
-    let context = ''
-    selectedChunks.forEach((chunk: any, index: number) => {
-      context += `\n--- Ensinamento ${index + 1} ---\n${chunk.content}\n`
-    })
+    let systemPrompt: string
+    let userMessage: string
 
-    const userMessage = `Tema solicitado: ${topic}\n\nResponda em Português Brasileiro.\n\nEnsinamentos selecionados:\n${context}\n\nCrie uma mensagem inspiradora baseada nesses ensinamentos seguindo as instruções fornecidas.`
+    if (selectedChunks?.length) {
+      // RAG mode: include teaching chunks as context
+      systemPrompt = customPrompt || DEFAULT_PROMPT
+      let context = ''
+      selectedChunks.forEach((chunk: any, index: number) => {
+        context += `\n--- Ensinamento ${index + 1} ---\n${chunk.content}\n`
+      })
+      userMessage = `Tema solicitado: ${topic}\n\nResponda em Português Brasileiro.\n\nEnsinamentos selecionados:\n${context}\n\nCrie uma mensagem inspiradora baseada nesses ensinamentos seguindo as instruções fornecidas.`
+    } else {
+      // Direct mode: use the custom prompt as-is (used by Cursos)
+      // customPrompt is REQUIRED in direct mode - it contains the agent's instructions
+      systemPrompt = customPrompt || 'Você é um assistente especializado. Siga as instruções do usuário com precisão. Responda em Português Brasileiro.'
+      userMessage = topic
+    }
 
     const provider = aiProvider || 'claude'
     const encoder = new TextEncoder()

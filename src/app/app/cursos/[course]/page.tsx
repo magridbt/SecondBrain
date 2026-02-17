@@ -14,6 +14,7 @@ import {
   Youtube,
   ArrowLeft,
   ArrowRight,
+  Loader2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -71,7 +72,15 @@ const CHANNELS: Channel[] = [
 
 export default function CourseChannelsPage() {
   const params = useParams()
-  const course = params.course as string
+  const course = params?.course as string
+
+  if (!course) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin text-sage-500" size={32} />
+      </div>
+    )
+  }
 
   const config = COURSES_CONFIG[course]
   if (!config) notFound()

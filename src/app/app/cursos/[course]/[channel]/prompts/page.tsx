@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import PromptsManagerPage from '@/components/PromptsManagerPage'
+import { Loader2 } from 'lucide-react'
 
 const VALID_COURSES: Record<string, string> = {
   'dadiva-de-ananda': 'Dádiva de Ananda',
@@ -20,8 +21,16 @@ const VALID_CHANNELS: Record<string, string> = {
 
 export default function CursoChannelPromptsPage() {
   const params = useParams()
-  const course = params.course as string
-  const channel = params.channel as string
+  const course = params?.course as string
+  const channel = params?.channel as string
+
+  if (!course || !channel) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin text-sage-500" size={32} />
+      </div>
+    )
+  }
 
   const courseName = VALID_COURSES[course]
   const channelName = VALID_CHANNELS[channel]

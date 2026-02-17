@@ -34,6 +34,7 @@ import {
   ExternalLink,
   Globe,
   Bot,
+  Upload,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -43,7 +44,7 @@ export interface PromptsManagerProps {
   backPath: string
 }
 
-type CreationMode = 'choose' | 'scratch' | 'import'
+type CreationMode = 'choose' | 'scratch' | 'import' | 'upload'
 
 interface CustomPrompt {
   id: string
@@ -643,7 +644,7 @@ export default function PromptsManagerPage({ category, title, backPath }: Prompt
                   </div>
                 )}
                 <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                  {editingPrompt ? 'Edit Prompt' : creationMode === 'choose' ? 'New Prompt' : creationMode === 'import' ? 'Import from Link' : 'Create from Scratch'}
+                  {editingPrompt ? 'Edit Prompt' : creationMode === 'choose' ? 'New Prompt' : creationMode === 'import' ? 'Import from Link' : creationMode === 'upload' ? 'Upload de Arquivo' : 'Create from Scratch'}
                 </h2>
               </div>
               <button
@@ -660,7 +661,7 @@ export default function PromptsManagerPage({ category, title, backPath }: Prompt
                 <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
                   Como deseja criar seu prompt?
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
                   {/* Create from scratch */}
                   <button
                     onClick={() => setCreationMode('scratch')}
@@ -674,6 +675,45 @@ export default function PromptsManagerPage({ category, title, backPath }: Prompt
                       Escreva suas instrucoes e escolha a IA preferida
                     </p>
                   </button>
+
+                  {/* Upload file */}
+                  <label
+                    className="group p-6 rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-500 transition-all duration-300 text-left hover:shadow-lg cursor-pointer"
+                  >
+                    <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <Upload className="text-white" size={24} />
+                    </div>
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-1">Upload de Arquivo</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Suba um arquivo .txt ou .md com o system prompt
+                    </p>
+                    <input
+                      type="file"
+                      accept=".txt,.md,.text,.markdown"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        if (file.size > 50000) {
+                          showToast('Arquivo muito grande (max 50KB)', 'warning')
+                          e.target.value = ''
+                          return
+                        }
+                        const reader = new FileReader()
+                        reader.onload = (ev) => {
+                          const text = ev.target?.result as string
+                          if (text) {
+                            const truncated = text.slice(0, 4000)
+                            setFormData((prev) => ({ ...prev, system_prompt: truncated, name: prev.name || file.name.replace(/\.(txt|md|text|markdown)$/i, '') }))
+                            setCreationMode('upload')
+                            showToast(`Arquivo "${file.name}" carregado (${truncated.length} chars)`, 'success')
+                          }
+                        }
+                        reader.readAsText(file)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
 
                   {/* Import from link */}
                   <button
@@ -840,13 +880,46 @@ export default function PromptsManagerPage({ category, title, backPath }: Prompt
 
                   {/* System Prompt */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Instructions (System Prompt) *
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Instructions (System Prompt) *
+                      </label>
+                      <label
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-sage-600 dark:text-sage-400 bg-sage-50 dark:bg-sage-900/20 hover:bg-sage-100 dark:hover:bg-sage-900/40 rounded-lg cursor-pointer transition-colors border border-sage-200 dark:border-sage-800/50"
+                      >
+                        <Upload size={14} />
+                        Upload .txt / .md
+                        <input
+                          type="file"
+                          accept=".txt,.md,.text,.markdown"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            if (file.size > 50000) {
+                              showToast('Arquivo muito grande (max 50KB)', 'warning')
+                              e.target.value = ''
+                              return
+                            }
+                            const reader = new FileReader()
+                            reader.onload = (ev) => {
+                              const text = ev.target?.result as string
+                              if (text) {
+                                const truncated = text.slice(0, 4000)
+                                setFormData((prev) => ({ ...prev, system_prompt: truncated }))
+                                showToast(`Arquivo "${file.name}" carregado (${truncated.length} chars)`, 'success')
+                              }
+                            }
+                            reader.readAsText(file)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                       {creationMode === 'import'
                         ? 'Cole aqui as instrucoes do GPT importado ou adapte conforme necessario.'
-                        : 'Define the rules and behavior. Be specific about tone, format, and expected content.'
+                        : 'Digite as instruções ou faça upload de um arquivo .txt / .md com o system prompt.'
                       }
                     </p>
                     <textarea

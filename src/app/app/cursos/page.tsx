@@ -55,7 +55,7 @@ export default function CursosPage() {
     <div className="min-h-full bg-gradient-to-b from-slate-50 to-slate-100/50 dark:from-gray-800 dark:to-gray-900">
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-sage-100/50 dark:border-sage-800/30 px-6 py-4">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-sage-400 to-sage-600 rounded-2xl flex items-center justify-center shadow-sage">
+          <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-2xl flex items-center justify-center shadow-lg">
             <GraduationCap className="text-white" size={20} />
           </div>
           <div>

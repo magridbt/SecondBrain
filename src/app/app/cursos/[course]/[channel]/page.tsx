@@ -2,12 +2,13 @@
 
 import { useParams } from 'next/navigation'
 import { notFound } from 'next/navigation'
-import ContentGeneratorPage from '@/components/ContentGeneratorPage'
+import DirectChatPage from '@/components/DirectChatPage'
 import {
   MessageCircle,
   Mail,
   Instagram,
   Youtube,
+  Loader2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -32,8 +33,16 @@ const CHANNEL_CONFIG: Record<string, ChannelConfig> = {
 
 export default function CursoChannelPage() {
   const params = useParams()
-  const course = params.course as string
-  const channel = params.channel as string
+  const course = params?.course as string
+  const channel = params?.channel as string
+
+  if (!course || !channel) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin text-sage-500" size={32} />
+      </div>
+    )
+  }
 
   const courseName = VALID_COURSES[course]
   const channelConfig = CHANNEL_CONFIG[channel]
@@ -41,7 +50,7 @@ export default function CursoChannelPage() {
   if (!courseName || !channelConfig) notFound()
 
   return (
-    <ContentGeneratorPage
+    <DirectChatPage
       category={`cursos-${course}-${channel}`}
       title={`${courseName} - ${channelConfig.name}`}
       icon={channelConfig.icon}
