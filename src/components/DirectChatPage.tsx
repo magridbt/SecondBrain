@@ -154,12 +154,37 @@ export default function DirectChatPage({ category, title, icon: PageIcon, prompt
     setTopic('')
 
     try {
+      // Auto-search for relevant teaching chunks (invisible RAG)
+      let autoChunks: any[] = []
+      try {
+        const searchResponse = await fetch('/api/daily-message/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic: userMessage }),
+        })
+        const searchData = await searchResponse.json()
+        if (searchData.results?.length) {
+          // Pick top 5 most relevant chunks automatically
+          autoChunks = searchData.results
+            .sort((a: any, b: any) => (b.similarity || 0) - (a.similarity || 0))
+            .slice(0, 5)
+            .map((r: any) => ({
+              id: r.id,
+              content: r.content,
+              sourceName: r.sourceName,
+              documentName: r.documentName,
+            }))
+        }
+      } catch {
+        // If search fails, proceed without chunks
+      }
+
       const response = await fetch('/api/daily-message/generate/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: userMessage,
-          selectedChunks: [],
+          selectedChunks: autoChunks,
           promptId: selectedPrompt?.id,
           customPrompt: selectedPrompt?.system_prompt,
           aiProvider: selectedAI,
