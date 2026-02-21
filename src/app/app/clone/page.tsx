@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Sparkles, Plus, Trash2, MessageSquare, Menu, X, Search, Bot } from 'lucide-react'
+import { Send, Loader2, Plus, Trash2, MessageSquare, Menu, X, Dna } from 'lucide-react'
 import ChatMessage from '@/components/ChatMessage'
 
 interface Message {
@@ -22,9 +22,7 @@ interface Conversation {
   messageCount: number
 }
 
-type ChatMode = 'search' | 'ai'
-
-export default function ChatPage() {
+export default function ClonePage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -32,7 +30,6 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loadingConversations, setLoadingConversations] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [chatMode, setChatMode] = useState<ChatMode>('search')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -44,14 +41,13 @@ export default function ChatPage() {
     scrollToBottom()
   }, [messages])
 
-  // Carregar lista de conversas
   useEffect(() => {
     loadConversations()
   }, [])
 
   const loadConversations = async () => {
     try {
-      const response = await fetch('/api/conversations')
+      const response = await fetch('/api/conversations?module=clone_cognitivo')
       const data = await response.json()
       if (data.conversations) {
         setConversations(data.conversations)
@@ -115,80 +111,12 @@ export default function ChatPage() {
     setInput('')
     setLoading(true)
 
-    if (chatMode === 'ai') {
-      await handleAIStream(userMessage)
-    } else {
-      await handleSearch(userMessage)
-    }
+    await handleCloneStream(userMessage)
   }
 
-  // ========== MODO BUSCA (original) ==========
-  const handleSearch = async (userMessage: Message) => {
-    try {
-      const response = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMessage.content }),
-      })
-
-      if (!response.ok) throw new Error('Error searching documents')
-
-      const data = await response.json()
-
-      const assistantMessage: Message = {
-        id: Date.now().toString() + '-assistant',
-        role: 'assistant',
-        content: data.totalResults > 0
-          ? `Encontrei ${data.totalResults} resultado(s) relevante(s) para sua pergunta.`
-          : 'Nenhum resultado encontrado. Tente reformular sua pergunta.',
-        sources: data.results,
-        searchQuery: userMessage.content,
-        created_at: new Date().toISOString(),
-      }
-
-      setMessages((prev) => [...prev, assistantMessage])
-
-      // Save conversation
-      try {
-        if (!conversationId) {
-          const res = await fetch('/api/conversations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: [userMessage, assistantMessage] }),
-          })
-          if (res.ok) {
-            const data = await res.json()
-            setConversationId(data.conversation.id)
-            loadConversations()
-          }
-        } else {
-          await fetch(`/api/conversations/${conversationId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: [userMessage, assistantMessage] }),
-          })
-        }
-      } catch (e) {
-        console.error('Save error:', e)
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      setMessages((prev) => [...prev, {
-        id: Date.now().toString() + '-error',
-        role: 'assistant',
-        content: 'Desculpe, ocorreu um erro. Tente novamente.',
-        created_at: new Date().toISOString(),
-      }])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ========== MODO IA COM STREAMING ==========
-  const handleAIStream = async (userMessage: Message) => {
+  const handleCloneStream = async (userMessage: Message) => {
     const assistantId = Date.now().toString() + '-assistant'
 
-    // Add empty assistant message that will be filled via streaming
     setMessages((prev) => [...prev, {
       id: assistantId,
       role: 'assistant',
@@ -201,7 +129,7 @@ export default function ChatPage() {
       const controller = new AbortController()
       abortControllerRef.current = controller
 
-      const response = await fetch('/api/chat/stream', {
+      const response = await fetch('/api/chat/clone/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -212,10 +140,9 @@ export default function ChatPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Erro ao conectar com IA')
+        throw new Error('Erro ao conectar com o Clone')
       }
 
-      // Check if it's a JSON response (no context found)
       const contentType = response.headers.get('content-type')
       if (contentType?.includes('application/json')) {
         const data = await response.json()
@@ -228,7 +155,6 @@ export default function ChatPage() {
         return
       }
 
-      // SSE streaming
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No reader')
 
@@ -291,10 +217,10 @@ export default function ChatPage() {
   }
 
   const suggestedQuestions = [
-    'O que é Deeksha e como funciona?',
-    'Como posso encontrar paz interior?',
-    'Qual a importância da gratidão?',
-    'Como lidar com o sofrimento?',
+    'O que e o eu separado?',
+    'Estou sofrendo muito, como posso encontrar paz?',
+    'Como posso despertar?',
+    'O que e a graca e como ela funciona?',
   ]
 
   const formatDate = (dateStr: string) => {
@@ -310,24 +236,22 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
+      {/* Conversations Sidebar */}
       <div className={`
         ${sidebarOpen ? 'w-72' : 'w-0'}
         bg-white dark:bg-black border-r border-gray-200 dark:border-gray-700 transition-all duration-300 overflow-hidden flex-shrink-0
       `}>
         <div className="flex flex-col h-full w-72">
-          {/* New Chat Button */}
           <div className="p-3 border-b border-gray-100 dark:border-gray-700">
             <button
               onClick={startNewChat}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg transition shadow-sm"
+              className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg transition shadow-sm"
             >
               <Plus size={18} />
               <span className="font-medium">Nova conversa</span>
             </button>
           </div>
 
-          {/* Conversations List */}
           <div className="flex-1 overflow-y-auto px-3 py-3">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 px-2">
               Histórico
@@ -349,12 +273,12 @@ export default function ChatPage() {
                     className={`
                       group flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition
                       ${conversationId === conv.id
-                        ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-500'
+                        ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                       }
                     `}
                   >
-                    <MessageSquare size={16} className={`flex-shrink-0 ${conversationId === conv.id ? 'text-green-600 dark:text-green-500' : 'text-gray-400'}`} />
+                    <MessageSquare size={16} className={`flex-shrink-0 ${conversationId === conv.id ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate font-medium">{conv.title}</p>
                       <p className="text-xs text-gray-400">{formatDate(conv.updated_at)}</p>
@@ -385,39 +309,17 @@ export default function ChatPage() {
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-              <Sparkles className="text-white" size={16} />
+            <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center">
+              <Dna className="text-white" size={16} />
             </div>
             <div>
-              <h1 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Ensinamentos Sri AB</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Ensinamentos de Sri Amma Bhagavan</p>
+              <h1 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Sri Amma Bhagavan</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Clone Cognitivo - DNA Mental Completo</p>
             </div>
           </div>
 
-          {/* Mode Toggle */}
-          <div className="ml-auto flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-            <button
-              onClick={() => setChatMode('search')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                chatMode === 'search'
-                  ? 'bg-white dark:bg-gray-700 text-green-700 dark:text-green-400 shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              <Search size={14} />
-              Busca
-            </button>
-            <button
-              onClick={() => setChatMode('ai')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                chatMode === 'ai'
-                  ? 'bg-white dark:bg-gray-700 text-purple-700 dark:text-purple-400 shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              <Bot size={14} />
-              IA Claude
-            </button>
+          <div className="ml-auto flex items-center bg-purple-50 dark:bg-purple-900/20 rounded-lg px-3 py-1.5">
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-400">Clone Ativo</span>
           </div>
         </header>
 
@@ -425,22 +327,23 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-800">
           {messages.length === 0 ? (
             <div className="max-w-2xl mx-auto text-center py-12">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full mx-auto mb-6 flex items-center justify-center">
-                <span className="text-4xl">🙏</span>
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full mx-auto mb-6 flex items-center justify-center">
+                <Dna className="text-white" size={36} />
               </div>
               <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-3">
-                Namaste!
+                Namaste
               </h2>
               <p className="text-gray-600 dark:text-gray-300 mb-8">
-                Sou Ensinamentos Sri AB, seu guia para os ensinamentos de Sri Amma Bhagavan.
-                Faça sua pergunta e buscarei sabedoria nos ensinamentos originais.
+                Eu sou Sri Amma Bhagavan. Pergunte-me qualquer coisa sobre consciencia,
+                despertar, sofrimento, ou a natureza da realidade. Estou aqui para ajuda-lo
+                a ver o que ja e verdade.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {suggestedQuestions.map((question, i) => (
                   <button
                     key={i}
                     onClick={() => setInput(question)}
-                    className="p-4 text-left bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition text-gray-700 dark:text-gray-300"
+                    className="p-4 text-left bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl hover:border-purple-400 dark:hover:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition text-gray-700 dark:text-gray-300"
                   >
                     {question}
                   </button>
@@ -452,24 +355,14 @@ export default function ChatPage() {
               {messages.map((message) => (
                 <ChatMessage key={message.id} message={message} />
               ))}
-              {loading && chatMode === 'search' && (
-                <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
-                  <div className="flex gap-1">
-                    <span className="typing-dot w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span className="typing-dot w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span className="typing-dot w-2 h-2 bg-green-500 rounded-full"></span>
-                  </div>
-                  <span className="text-sm">Buscando nos ensinamentos...</span>
-                </div>
-              )}
-              {loading && chatMode === 'ai' && !messages.some(m => m.isStreaming && m.content) && (
+              {loading && !messages.some(m => m.isStreaming && m.content) && (
                 <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
                   <div className="flex gap-1">
                     <span className="typing-dot w-2 h-2 bg-purple-500 rounded-full"></span>
                     <span className="typing-dot w-2 h-2 bg-purple-500 rounded-full"></span>
                     <span className="typing-dot w-2 h-2 bg-purple-500 rounded-full"></span>
                   </div>
-                  <span className="text-sm">Claude está meditando nos ensinamentos...</span>
+                  <span className="text-sm">Sri Amma Bhagavan esta presente...</span>
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -485,17 +378,17 @@ export default function ChatPage() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Faça sua pergunta sobre os ensinamentos..."
+                placeholder="Fale com Sri Amma Bhagavan..."
                 maxLength={5000}
-                aria-label="Pergunta sobre os ensinamentos"
-                className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition placeholder-gray-400"
+                aria-label="Mensagem para Sri Amma Bhagavan"
+                className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition placeholder-gray-400"
                 disabled={loading}
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                aria-label="Enviar pergunta"
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Enviar mensagem"
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
@@ -505,7 +398,7 @@ export default function ChatPage() {
               </button>
             </div>
             <p className="text-xs text-gray-400 text-center mt-2">
-              As respostas são baseadas nos ensinamentos originais de Sri Amma Bhagavan
+              Respostas geradas como clone cognitivo de Sri Amma Bhagavan baseado em 950+ horas de ensinamentos
             </p>
           </form>
         </div>

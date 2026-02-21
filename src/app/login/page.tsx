@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -10,7 +9,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'login' | 'signup'>('login')
-  const router = useRouter()
   const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,17 +32,20 @@ export default function LoginPage() {
         setError('Verifique seu email para confirmar o cadastro.')
         return
       }
-      router.push('/app')
-      router.refresh()
+      // Usar navegação completa (full page reload) para garantir que os cookies
+      // de sessão SSR sejam propagados antes do middleware server-side validar a auth.
+      // router.push() causa race condition: navega antes dos cookies serem setados.
+      window.location.href = '/app/chat'
     } catch (err: any) {
-      setError(err.message || 'Erro ao fazer login')
+      console.error('LOGIN ERROR:', err)
+      setError(`Erro: ${err.message} (código: ${err.status || err.code || 'desconhecido'})`)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50">
+    <div className="min-h-screen flex items-center justify-center bg-[#F8F6F2]">
       <div className="w-full max-w-md p-8">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">

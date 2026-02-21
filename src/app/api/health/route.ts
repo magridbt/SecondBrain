@@ -5,6 +5,7 @@ export async function GET() {
   const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {
     database: { status: 'error' },
     api: { status: 'ok' },
+    anthropic: { status: 'unknown' },
   }
 
   // Check Database
@@ -17,14 +18,23 @@ export async function GET() {
     checks.database = { status: 'error', error: (error as Error).message }
   }
 
+  // Check Anthropic API key configured
+  checks.anthropic = process.env.ANTHROPIC_API_KEY
+    ? { status: 'ok' }
+    : { status: 'error', error: 'ANTHROPIC_API_KEY not configured' }
+
   const hasErrors = Object.values(checks).some((c) => c.status === 'error')
 
   return NextResponse.json(
     {
       status: hasErrors ? 'unhealthy' : 'healthy',
       timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || '1.0.0',
       checks,
     },
-    { status: hasErrors ? 503 : 200 }
+    {
+      status: hasErrors ? 503 : 200,
+      headers: { 'Cache-Control': 'no-store, max-age=0' },
+    }
   )
 }

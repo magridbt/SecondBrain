@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 }
 
 // GET - Listar conversas do usuario
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -71,6 +71,9 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const module = searchParams.get('module') || 'sri_ab_teachings'
 
     const { data: conversations, error } = await supabase
       .from('conversations')
@@ -86,8 +89,8 @@ export async function GET() {
         )
       `)
       .eq('user_id', user.id)
-      .eq('module', 'sri_ab_teachings')
-      .is('deleted_at', null) // Ignorar conversas deletadas
+      .eq('module', module)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false })
       .limit(50)
 
@@ -95,13 +98,15 @@ export async function GET() {
 
     // Formatar conversas com titulo (primeira mensagem do usuario)
     const formattedConversations = conversations?.map(conv => {
-      const firstUserMessage = conv.messages
-        ?.filter((m: any) => m.role === 'user')
-        ?.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0]
+      const sortedUserMessages = conv.messages
+        ?.filter((m: { role: string }) => m.role === 'user')
+        ?.sort((a: { created_at: string }, b: { created_at: string }) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      const firstUserMessage = sortedUserMessages?.[0] as { content?: string } | undefined
 
+      const content = firstUserMessage?.content || ''
       return {
         id: conv.id,
-        title: firstUserMessage?.content?.substring(0, 50) + (firstUserMessage?.content?.length > 50 ? '...' : '') || 'Nova conversa',
+        title: content ? content.substring(0, 50) + (content.length > 50 ? '...' : '') : 'Nova conversa',
         created_at: conv.created_at,
         updated_at: conv.updated_at,
         messageCount: conv.messages?.length || 0,

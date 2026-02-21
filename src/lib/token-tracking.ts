@@ -46,6 +46,24 @@ export async function trackTokenUsage(params: TrackTokenParams): Promise<void> {
   }
 }
 
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 1000
+
+export function trackTokenUsageWithRetry(params: TrackTokenParams): void {
+  let attempt = 0
+  const tryTrack = () => {
+    attempt++
+    trackTokenUsage(params).catch((error) => {
+      if (attempt < MAX_RETRIES) {
+        setTimeout(tryTrack, RETRY_DELAY_MS * attempt)
+      } else {
+        console.error(`Token tracking failed after ${MAX_RETRIES} retries:`, error)
+      }
+    })
+  }
+  tryTrack()
+}
+
 interface UsageSummary {
   totalTokens: number
   totalCost: number

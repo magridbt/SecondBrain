@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { MessageSquare, Sparkles, Share2, GraduationCap, FileText, Users, Activity, Settings, Sun, Moon, LogOut } from 'lucide-react'
+import { MessageSquare, Sparkles, Share2, GraduationCap, FileText, Users, Activity, Settings, Sun, Moon, LogOut, Dna } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -9,9 +9,10 @@ interface AppLayoutClientProps {
   user: any
   profile: any
   children: React.ReactNode
+  userModuleSlugs?: string[]
 }
 
-export default function AppLayoutClient({ user, profile, children }: AppLayoutClientProps) {
+export default function AppLayoutClient({ user, profile, children, userModuleSlugs = [] }: AppLayoutClientProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -24,13 +25,14 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
     router.refresh()
   }
 
-  const modules = [
+  const allModules = [
     {
       name: 'Ensinamentos Sri AB',
       shortName: 'Sri AB',
       href: '/app/chat',
       icon: MessageSquare,
       active: pathname.startsWith('/app/chat'),
+      slug: 'sri-ab-teachings',
     },
     {
       name: 'Ensinamento Diário',
@@ -38,6 +40,7 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
       href: '/app/daily-teaching',
       icon: Sparkles,
       active: pathname.startsWith('/app/daily-teaching'),
+      slug: 'daily-teaching',
     },
     {
       name: 'Redes Sociais',
@@ -45,6 +48,7 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
       href: '/app/social-media',
       icon: Share2,
       active: pathname.startsWith('/app/social-media'),
+      slug: 'social-media',
     },
     {
       name: 'Cursos',
@@ -52,8 +56,22 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
       href: '/app/cursos',
       icon: GraduationCap,
       active: pathname.startsWith('/app/cursos'),
+      slug: 'cursos',
+    },
+    {
+      name: 'Clone Cognitivo',
+      shortName: 'Clone',
+      href: '/app/clone',
+      icon: Dna,
+      active: pathname.startsWith('/app/clone'),
+      slug: 'clone-cognitivo',
     },
   ]
+
+  // Admins see all modules; members only see permitted ones
+  const modules = isAdmin
+    ? allModules
+    : allModules.filter(m => userModuleSlugs.includes(m.slug))
 
   const adminItems = [
     { name: 'Documentos', href: '/app/admin/documents', icon: FileText },
@@ -68,14 +86,20 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
       <aside className="w-16 bg-white dark:bg-black border-r border-gray-200 dark:border-gray-700 flex flex-col items-center py-4 flex-shrink-0">
         {/* Modules */}
         <div className="flex flex-col items-center gap-2 flex-1">
-          {modules.map((mod) => (
+          {modules.map((mod) => {
+            const isClone = mod.slug === 'clone-cognitivo'
+            const activeColor = isClone
+              ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 shadow-sm'
+              : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 shadow-sm'
+            const indicatorColor = isClone ? 'bg-purple-500' : 'bg-green-500'
+            return (
             <button
               key={mod.href}
               onClick={() => router.push(mod.href)}
               className={`
                 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 group relative
                 ${mod.active
-                  ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 shadow-sm'
+                  ? activeColor
                   : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300'
                 }
               `}
@@ -84,14 +108,15 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
               <mod.icon size={20} />
               {/* Active indicator */}
               {mod.active && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-1.5 h-6 bg-green-500 rounded-r-full" />
+                <div className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-1.5 h-6 ${indicatorColor} rounded-r-full`} />
               )}
               {/* Tooltip */}
               <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
                 {mod.name}
               </div>
             </button>
-          ))}
+            )
+          })}
 
           {/* Divider */}
           {isAdmin && (
@@ -127,6 +152,7 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
             onClick={toggleTheme}
             className="w-11 h-11 rounded-xl flex items-center justify-center text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-all group relative"
             title={theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}
+            aria-label={theme === 'light' ? 'Mudar para modo escuro' : 'Mudar para modo claro'}
           >
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
@@ -137,6 +163,7 @@ export default function AppLayoutClient({ user, profile, children }: AppLayoutCl
             onClick={handleLogout}
             className="w-11 h-11 rounded-xl flex items-center justify-center text-gray-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-all group relative"
             title="Sair"
+            aria-label="Sair da conta"
           >
             <LogOut size={18} />
             <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { trackTokenUsage } from '@/lib/token-tracking'
+import { trackTokenUsageWithRetry } from '@/lib/token-tracking'
 
 interface AIResponse {
   text: string
@@ -21,7 +21,9 @@ interface AICallParams {
 const FALLBACK_ORDER = ['claude', 'chatgpt', 'gemini'] as const
 
 async function callClaude(params: AICallParams): Promise<AIResponse> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
+  const anthropic = new Anthropic({ apiKey })
   const model = 'claude-sonnet-4-20250514'
 
   const response = await anthropic.messages.create({
@@ -127,15 +129,15 @@ export async function callAIWithFallback(params: AICallParams): Promise<AIRespon
     try {
       const result = await PROVIDER_MAP[provider](params)
 
-      // Track token usage
-      await trackTokenUsage({
+      // Track token usage with retry (fire-and-forget)
+      trackTokenUsageWithRetry({
         userId: params.userId,
         model: result.model,
-        provider: result.provider as any,
+        provider: result.provider as 'claude' | 'chatgpt' | 'gemini' | 'voyage',
         inputTokens: result.inputTokens,
         outputTokens: result.outputTokens,
         endpoint: params.endpoint,
-      }).catch(() => {}) // Don't block on tracking failure
+      })
 
       return result
     } catch (error: any) {

@@ -65,3 +65,4 @@ logs/
 .aios-core/local/
 .claude/settings.local.json
 .aios/install-log.txt
+test_full_search.mjs

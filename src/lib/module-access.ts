@@ -99,7 +99,8 @@ export async function canAccessModule(
 export const moduleRoutes: Record<string, string[]> = {
   'sri-ab-teachings': ['/app/chat', '/app/admin'],
   'daily-teaching': ['/app/daily-teaching'],
-  'social-media': ['/app/social'],
+  'social-media': ['/app/social-media'],
+  'cursos': ['/app/cursos'],
 }
 
 /**

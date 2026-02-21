@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { checkUsageLimit, trackTokenUsage } from '@/lib/token-tracking'
+import { checkUsageLimit, trackTokenUsageWithRetry } from '@/lib/token-tracking'
 
 const DEFAULT_PROMPT = `Você é um assistente espiritual que cria ensinamentos diários inspiradores baseados nos ensinamentos de Sri Amma Bhagavan.
 
@@ -31,7 +31,9 @@ async function callProviderStream(
   onText: (text: string) => void,
 ): Promise<{ fullText: string; inputTokens: number; outputTokens: number; model: string }> {
   if (provider === 'claude') {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
+    const anthropic = new Anthropic({ apiKey })
     const model = 'claude-sonnet-4-20250514'
     const stream = await anthropic.messages.stream({
       model,
@@ -40,13 +42,14 @@ async function callProviderStream(
       messages: [{ role: 'user', content: userMessage }],
     })
 
-    let fullText = ''
+    const textChunks: string[] = []
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullText += event.delta.text
+        textChunks.push(event.delta.text)
         onText(event.delta.text)
       }
     }
+    const fullText = textChunks.join('')
 
     const final = await stream.finalMessage()
     return {
@@ -85,7 +88,7 @@ async function callProviderStream(
     if (!reader) throw new Error('No reader')
 
     const decoder = new TextDecoder()
-    let fullText = ''
+    const textChunks: string[] = []
     let buffer = ''
 
     while (true) {
@@ -101,14 +104,14 @@ async function callProviderStream(
           const data = JSON.parse(line.slice(6))
           const text = data.choices?.[0]?.delta?.content
           if (text) {
-            fullText += text
+            textChunks.push(text)
             onText(text)
           }
         } catch {}
       }
     }
 
-    return { fullText, inputTokens: 0, outputTokens: 0, model }
+    return { fullText: textChunks.join(''), inputTokens: 0, outputTokens: 0, model }
   }
 
   if (provider === 'gemini') {
@@ -135,7 +138,7 @@ async function callProviderStream(
     if (!reader) throw new Error('No reader')
 
     const decoder = new TextDecoder()
-    let fullText = ''
+    const textChunks: string[] = []
     let buffer = ''
 
     while (true) {
@@ -151,14 +154,14 @@ async function callProviderStream(
           const data = JSON.parse(line.slice(6))
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text
           if (text) {
-            fullText += text
+            textChunks.push(text)
             onText(text)
           }
         } catch {}
       }
     }
 
-    return { fullText, inputTokens: 0, outputTokens: 0, model }
+    return { fullText: textChunks.join(''), inputTokens: 0, outputTokens: 0, model }
   }
 
   throw new Error(`Unknown provider: ${provider}`)
@@ -179,10 +182,20 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: usageCheck.reason || 'Limite de uso atingido' }), { status: 429 })
     }
 
-    const { topic, selectedChunks, promptId, customPrompt, aiProvider, category = 'daily-teaching' } = await request.json()
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return new Response(JSON.stringify({ error: 'JSON invalido' }), { status: 400 })
+    }
 
-    if (!topic) {
-      return new Response(JSON.stringify({ error: 'Dados inválidos' }), { status: 400 })
+    const { topic, selectedChunks, promptId, customPrompt, aiProvider, category = 'daily-teaching' } = body as {
+      topic?: string; selectedChunks?: Array<{ id: string; content: string; documentName: string; sourceName: string }>
+      promptId?: string; customPrompt?: string; aiProvider?: string; category?: string
+    }
+
+    if (!topic || typeof topic !== 'string') {
+      return new Response(JSON.stringify({ error: 'Dados invalidos' }), { status: 400 })
     }
 
     let systemPrompt: string
@@ -203,7 +216,7 @@ export async function POST(request: Request) {
       userMessage = topic
     }
 
-    const provider = aiProvider || 'claude'
+    const provider = (aiProvider || 'claude') as 'claude' | 'chatgpt' | 'gemini' | 'voyage'
     const encoder = new TextEncoder()
 
     const readable = new ReadableStream({
@@ -219,15 +232,15 @@ export async function POST(request: Request) {
             },
           )
 
-          // Track token usage
-          trackTokenUsage({
+          // Track token usage with retry
+          trackTokenUsageWithRetry({
             userId: user.id,
             model: result.model,
             provider,
             inputTokens: result.inputTokens,
             outputTokens: result.outputTokens,
             endpoint: 'daily-message-generate-stream',
-          }).catch(() => {})
+          })
 
           // Save to database
           const { data: savedMessage, error: saveError } = await supabase
@@ -235,12 +248,12 @@ export async function POST(request: Request) {
             .insert({
               user_id: user.id,
               topic,
-              selected_chunks: selectedChunks.map((c: any) => ({
+              selected_chunks: selectedChunks?.map((c: { id: string; content: string; documentName: string; sourceName: string }) => ({
                 id: c.id,
                 content: c.content.substring(0, 500),
                 documentName: c.documentName,
                 sourceName: c.sourceName,
-              })),
+              })) || [],
               generated_message: result.fullText,
               language: 'pt',
               status: 'draft',

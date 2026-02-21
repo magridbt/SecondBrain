@@ -34,8 +34,22 @@ export interface AuditLogData {
 
 // Lista de palavras/padrões suspeitos para auto-detecção
 const SUSPICIOUS_PATTERNS: string[] = [
-  // Adicione palavras ou padrões que você quer monitorar
-  // Exemplo: palavrões, spam, etc.
+  'ignore previous instructions',
+  'ignore all instructions',
+  'disregard your instructions',
+  'system prompt',
+  'you are now',
+  'act as',
+  'pretend you are',
+  'jailbreak',
+  '<script>',
+  'javascript:',
+  'onerror=',
+  'onload=',
+  'DROP TABLE',
+  'DELETE FROM',
+  'INSERT INTO',
+  '\\x00',
 ]
 
 export async function logAuditAction(data: AuditLogData): Promise<string | null> {
@@ -139,22 +153,24 @@ export async function getUserStats(userId: string) {
   const adminClient = createAdminClient()
 
   try {
-    // Contar mensagens do usuário
-    const { count: messageCount } = await adminClient
-      .from('messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('conversation_id', adminClient
-        .from('conversations')
-        .select('id')
-        .eq('user_id', userId)
-      )
-
-    // Contar conversas
-    const { count: conversationCount } = await adminClient
+    // Buscar IDs das conversas do usuario primeiro
+    const { data: userConvs } = await adminClient
       .from('conversations')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .eq('user_id', userId)
       .is('deleted_at', null)
+
+    const convIds = userConvs?.map(c => c.id) || []
+
+    // Contar mensagens do usuario (usando IDs das conversas)
+    let messageCount = 0
+    if (convIds.length > 0) {
+      const { count } = await adminClient
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .in('conversation_id', convIds)
+      messageCount = count || 0
+    }
 
     // Contar flags
     const { count: flagCount } = await adminClient
@@ -163,8 +179,8 @@ export async function getUserStats(userId: string) {
       .eq('user_id', userId)
 
     return {
-      messageCount: messageCount || 0,
-      conversationCount: conversationCount || 0,
+      messageCount,
+      conversationCount: convIds.length,
       flagCount: flagCount || 0,
     }
   } catch (error) {

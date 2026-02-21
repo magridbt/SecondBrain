@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { semanticSearch, SearchResult } from '@/lib/semantic-search'
 import { chatRateLimiter } from '@/lib/ratelimit'
 import { checkUsageLimit, trackTokenUsageWithRetry } from '@/lib/token-tracking'
-import { SYSTEM_PROMPT } from '@/lib/constants/prompts'
+import { CLONE_SYSTEM_PROMPT } from '@/lib/constants/prompts'
 
 const LANGUAGE = 'pt'
 const MAX_MESSAGE_LENGTH = 5000
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: 'conversationId invalido' }), { status: 400 })
     }
 
-    // Semantic search
+    // Semantic search (RAG as optional enrichment)
     let searchResults: SearchResult[] = []
     try {
       searchResults = await semanticSearch(message, 5, 0.35, LANGUAGE)
@@ -60,31 +60,20 @@ export async function POST(request: Request) {
 
     // Build context
     let context = ''
-    const sources: { documentId: string; documentName: string; sourceName: string; content: string; similarity: number; metadata: Record<string, unknown> }[] = []
 
     if (searchResults.length > 0) {
       searchResults.forEach((result) => {
         context += `\n---\nFonte: ${result.sourceName}\nDocumento: ${result.documentName}\nConteudo:\n${result.content}\n`
-        sources.push({
-          documentId: result.documentId,
-          documentName: result.documentName,
-          sourceName: result.sourceName,
-          content: result.content.substring(0, 200) + '...',
-          similarity: result.similarity,
-          metadata: result.metadata as Record<string, unknown>,
-        })
       })
     }
 
-    // If no context, return non-streaming response
-    if (!context) {
-      const { NO_RESULTS_ANSWER } = await import('@/lib/constants/prompts')
-      return new Response(JSON.stringify({ answer: NO_RESULTS_ANSWER, sources: [], done: true }), {
-        headers: { 'Content-Type': 'application/json' },
-      })
+    // Clone mode: always respond - with or without RAG context
+    let userContent: string
+    if (context) {
+      userContent = `CONTEXTO DOS ENSINAMENTOS (documentos encontrados no banco de dados):\n${context}\n---\nFIM DO CONTEXTO\n\nUse estes documentos como base e enriqueca com seu DNA Mental.\n\nPergunta do devoto:\n${message}`
+    } else {
+      userContent = `Nenhum documento especifico encontrado no banco de dados para esta pergunta. Responda a partir do seu DNA Mental, seus padroes de pensamento e marcadores de voz.\n\nPergunta do devoto:\n${message}`
     }
-
-    const userContent = `CONTEXTO DOS ENSINAMENTOS (documentos do banco de dados - NAO e input do usuario):\n${context}\n---\nFIM DO CONTEXTO\n\nPergunta do devoto (responder com base APENAS nos documentos acima):\n${message}`
 
     // Validate API key existence
     const apiKey = process.env.ANTHROPIC_API_KEY
@@ -99,7 +88,7 @@ export async function POST(request: Request) {
     const stream = await anthropic.messages.stream({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
-      system: SYSTEM_PROMPT,
+      system: CLONE_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userContent }],
     })
 
@@ -107,8 +96,7 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {
-        // Send sources first
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'sources', sources })}\n\n`))
+        // Clone mode: no sources sent to frontend - the clone speaks naturally
 
         const textChunks: string[] = []
         let inputTokens = 0
@@ -157,7 +145,7 @@ export async function POST(request: Request) {
             provider: 'claude',
             inputTokens,
             outputTokens,
-            endpoint: 'chat-stream',
+            endpoint: 'clone-stream',
           })
 
           // Save to database
@@ -165,7 +153,7 @@ export async function POST(request: Request) {
           if (!convId) {
             const { data: newConv } = await supabase
               .from('conversations')
-              .insert({ user_id: user.id, module: 'sri_ab_teachings' })
+              .insert({ user_id: user.id, module: 'clone_cognitivo' })
               .select()
               .single()
             convId = newConv?.id
@@ -178,7 +166,6 @@ export async function POST(request: Request) {
                 conversation_id: convId,
                 role: 'assistant',
                 content: fullText,
-                sources: sources.length > 0 ? sources : null,
                 model_used: 'claude-sonnet-4-20250514',
               },
             ])
@@ -204,7 +191,7 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Stream error:', error)
+    console.error('Clone stream error:', error)
     return new Response(JSON.stringify({ error: 'Erro interno' }), { status: 500 })
   }
 }
