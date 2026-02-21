@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { checkUsageLimit, trackTokenUsageWithRetry } from '@/lib/token-tracking'
 
 const DEFAULT_PROMPT = `Você é um assistente espiritual que cria ensinamentos diários inspiradores baseados nos ensinamentos de Sri Amma Bhagavan.
@@ -33,31 +32,64 @@ async function callProviderStream(
   if (provider === 'claude') {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-    const anthropic = new Anthropic({ apiKey })
     const model = 'claude-sonnet-4-20250514'
-    const stream = await anthropic.messages.stream({
-      model,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        stream: true,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+      }),
     })
 
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => '')
+      throw new Error(`Anthropic error ${response.status}: ${errBody}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('No reader from Anthropic response')
+
+    const decoder = new TextDecoder()
     const textChunks: string[] = []
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        textChunks.push(event.delta.text)
-        onText(event.delta.text)
+    let buffer = ''
+    let inputTokens = 0
+    let outputTokens = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const jsonStr = line.slice(6).trim()
+        if (!jsonStr) continue
+        try {
+          const data = JSON.parse(jsonStr)
+          if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
+            textChunks.push(data.delta.text)
+            onText(data.delta.text)
+          } else if (data.type === 'message_delta' && data.usage) {
+            outputTokens = data.usage.output_tokens || 0
+          } else if (data.type === 'message_start' && data.message?.usage) {
+            inputTokens = data.message.usage.input_tokens || 0
+          }
+        } catch {}
       }
     }
-    const fullText = textChunks.join('')
 
-    const final = await stream.finalMessage()
-    return {
-      fullText,
-      inputTokens: final.usage.input_tokens,
-      outputTokens: final.usage.output_tokens,
-      model,
-    }
+    return { fullText: textChunks.join(''), inputTokens, outputTokens, model }
   }
 
   if (provider === 'chatgpt') {

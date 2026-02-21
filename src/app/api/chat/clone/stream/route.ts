@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { semanticSearch, SearchResult } from '@/lib/semantic-search'
 import { chatRateLimiter } from '@/lib/ratelimit'
 import { checkUsageLimit, trackTokenUsageWithRetry } from '@/lib/token-tracking'
@@ -7,7 +6,6 @@ import { CLONE_SYSTEM_PROMPT } from '@/lib/constants/prompts'
 
 const LANGUAGE = 'pt'
 const MAX_MESSAGE_LENGTH = 5000
-const STREAM_TIMEOUT_MS = 60000
 
 export const maxDuration = 60
 
@@ -84,66 +82,78 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: 'Erro de configuracao do servidor' }), { status: 500 })
     }
 
-    // Stream with Claude
-    const anthropic = new Anthropic({ apiKey })
-
-    const stream = await anthropic.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      system: CLONE_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userContent }],
+    // Stream with Claude via fetch (serverless-compatible)
+    const claudeModel = 'claude-sonnet-4-20250514'
+    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: claudeModel,
+        max_tokens: 2000,
+        stream: true,
+        system: CLONE_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userContent }],
+      }),
     })
+
+    if (!claudeResponse.ok) {
+      const errBody = await claudeResponse.text().catch(() => '')
+      console.error('Anthropic API error:', claudeResponse.status, errBody)
+      return new Response(JSON.stringify({ error: 'Erro na API de IA' }), { status: 502 })
+    }
+
+    const claudeReader = claudeResponse.body?.getReader()
+    if (!claudeReader) {
+      return new Response(JSON.stringify({ error: 'Erro ao conectar com IA' }), { status: 502 })
+    }
 
     // Create SSE response
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {
-        // Clone mode: no sources sent to frontend - the clone speaks naturally
-
         const textChunks: string[] = []
         let inputTokens = 0
         let outputTokens = 0
-        let streamTimedOut = false
-
-        // Stream timeout
-        const timeoutHandle = setTimeout(() => {
-          streamTimedOut = true
-          try {
-            stream.abort()
-          } catch {}
-          try {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: 'Tempo limite excedido' })}\n\n`))
-            controller.close()
-          } catch {}
-        }, STREAM_TIMEOUT_MS)
+        const decoder = new TextDecoder()
+        let buffer = ''
 
         try {
-          for await (const event of stream) {
-            if (streamTimedOut) break
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              const text = event.delta.text
-              textChunks.push(text)
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'text', text })}\n\n`))
-            }
-            if (event.type === 'message_delta' && event.usage) {
-              outputTokens = event.usage.output_tokens
+          while (true) {
+            const { done, value } = await claudeReader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue
+              const jsonStr = line.slice(6).trim()
+              if (!jsonStr) continue
+              try {
+                const data = JSON.parse(jsonStr)
+                if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
+                  const text = data.delta.text
+                  textChunks.push(text)
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'text', text })}\n\n`))
+                } else if (data.type === 'message_delta' && data.usage) {
+                  outputTokens = data.usage.output_tokens || 0
+                } else if (data.type === 'message_start' && data.message?.usage) {
+                  inputTokens = data.message.usage.input_tokens || 0
+                }
+              } catch {}
             }
           }
 
-          clearTimeout(timeoutHandle)
-          if (streamTimedOut) return
-
           const fullText = textChunks.join('')
-
-          // Get final message for token counts
-          const finalMessage = await stream.finalMessage()
-          inputTokens = finalMessage.usage.input_tokens
-          outputTokens = finalMessage.usage.output_tokens
 
           // Track token usage with retry
           trackTokenUsageWithRetry({
             userId: user.id,
-            model: 'claude-sonnet-4-20250514',
+            model: claudeModel,
             provider: 'claude',
             inputTokens,
             outputTokens,
@@ -168,16 +178,15 @@ export async function POST(request: Request) {
                 conversation_id: convId,
                 role: 'assistant',
                 content: fullText,
-                model_used: 'claude-sonnet-4-20250514',
+                model_used: claudeModel,
               },
             ])
           }
 
           // Send done event
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', conversationId: convId })}\n\n`))
-        } catch (err) {
-          clearTimeout(timeoutHandle)
-          try { stream.abort() } catch {}
+        } catch (err: any) {
+          console.error('Clone stream error:', err?.message || err)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: 'Erro ao gerar resposta' })}\n\n`))
         }
 
