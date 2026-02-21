@@ -167,6 +167,8 @@ async function callProviderStream(
   throw new Error(`Unknown provider: ${provider}`)
 }
 
+export const maxDuration = 60
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -283,11 +285,11 @@ export async function POST(request: Request) {
             ai_provider: provider,
             ai_model: result.model,
           })}\n\n`))
-        } catch (err) {
-          console.error('Stream generation error:', err)
+        } catch (err: any) {
+          console.error('Stream generation error:', err?.message || err, err?.status, err?.stack)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             type: 'error',
-            error: 'Erro ao gerar mensagem',
+            error: `Erro ao gerar mensagem: ${err?.message || 'unknown'}`,
           })}\n\n`))
         }
 
