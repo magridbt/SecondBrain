@@ -64,23 +64,23 @@ interface MiracleCopy {
 
 // ── Constants ──
 
-const NETWORKS: { slug: string; name: string; icon: LucideIcon; gradient: string }[] = [
-  { slug: 'youtube', name: 'YouTube', icon: Youtube, gradient: 'from-red-500 to-red-600' },
-  { slug: 'instagram', name: 'Instagram', icon: Instagram, gradient: 'from-pink-500 to-purple-600' },
-  { slug: 'x-twitter', name: 'X (Twitter)', icon: Twitter, gradient: 'from-gray-700 to-gray-900' },
-  { slug: 'facebook', name: 'Facebook', icon: Facebook, gradient: 'from-blue-500 to-blue-700' },
-  { slug: 'linkedin', name: 'LinkedIn', icon: Linkedin, gradient: 'from-blue-600 to-blue-800' },
-  { slug: 'tiktok', name: 'TikTok', icon: Music2, gradient: 'from-gray-900 to-pink-500' },
-  { slug: 'threads', name: 'Threads', icon: AtSign, gradient: 'from-gray-800 to-gray-600' },
-  { slug: 'pinterest', name: 'Pinterest', icon: Pin, gradient: 'from-red-600 to-red-700' },
+const NETWORKS: { slug: string; name: string; icon: LucideIcon; gradient: string; color: string; bg: string; border: string }[] = [
+  { slug: 'youtube', name: 'YouTube', icon: Youtube, gradient: 'from-red-500 to-red-600', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800/40' },
+  { slug: 'instagram', name: 'Instagram', icon: Instagram, gradient: 'from-pink-500 to-purple-600', color: 'text-pink-600', bg: 'bg-pink-50 dark:bg-pink-900/20', border: 'border-pink-200 dark:border-pink-800/40' },
+  { slug: 'x-twitter', name: 'X (Twitter)', icon: Twitter, gradient: 'from-gray-700 to-gray-900', color: 'text-gray-700 dark:text-gray-300', bg: 'bg-gray-100 dark:bg-gray-800', border: 'border-gray-300 dark:border-gray-600' },
+  { slug: 'facebook', name: 'Facebook', icon: Facebook, gradient: 'from-blue-500 to-blue-700', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800/40' },
+  { slug: 'linkedin', name: 'LinkedIn', icon: Linkedin, gradient: 'from-blue-600 to-blue-800', color: 'text-blue-700', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800/40' },
+  { slug: 'tiktok', name: 'TikTok', icon: Music2, gradient: 'from-gray-900 to-pink-500', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20', border: 'border-pink-200 dark:border-pink-800/40' },
+  { slug: 'threads', name: 'Threads', icon: AtSign, gradient: 'from-gray-800 to-gray-600', color: 'text-gray-700 dark:text-gray-300', bg: 'bg-gray-100 dark:bg-gray-800', border: 'border-gray-300 dark:border-gray-600' },
+  { slug: 'pinterest', name: 'Pinterest', icon: Pin, gradient: 'from-red-600 to-red-700', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800/40' },
 ]
 
 const SOURCE_NETWORKS = [
   ...NETWORKS,
-  { slug: 'whatsapp', name: 'WhatsApp', icon: MessageCircle, gradient: 'from-green-500 to-green-600' },
-  { slug: 'telegram', name: 'Telegram', icon: Send, gradient: 'from-blue-400 to-blue-500' },
-  { slug: 'email', name: 'E-mail', icon: Mail, gradient: 'from-gray-500 to-gray-600' },
-  { slug: 'outro', name: 'Outro', icon: HelpCircle, gradient: 'from-gray-400 to-gray-500' },
+  { slug: 'whatsapp', name: 'WhatsApp', icon: MessageCircle, gradient: 'from-green-500 to-green-600', color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800/40' },
+  { slug: 'telegram', name: 'Telegram', icon: Send, gradient: 'from-blue-400 to-blue-500', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800/40' },
+  { slug: 'email', name: 'E-mail', icon: Mail, gradient: 'from-gray-500 to-gray-600', color: 'text-gray-600', bg: 'bg-gray-100 dark:bg-gray-800', border: 'border-gray-300 dark:border-gray-600' },
+  { slug: 'outro', name: 'Outro', icon: HelpCircle, gradient: 'from-gray-400 to-gray-500', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800', border: 'border-gray-300 dark:border-gray-600' },
 ]
 
 const AI_PROVIDERS = [
@@ -654,14 +654,15 @@ export default function MilagresPage() {
                   <div className="flex flex-wrap gap-2">
                     {SOURCE_NETWORKS.map((net) => {
                       const NetIcon = net.icon
+                      const isSelected = newSourceNetwork === net.slug
                       return (
                         <button
                           key={net.slug}
                           onClick={() => setNewSourceNetwork(net.slug)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                            newSourceNetwork === net.slug
-                              ? 'bg-amber-500 text-white shadow-lg'
-                              : 'bg-white dark:bg-gray-800 border border-sage-100/50 dark:border-sage-800/30 text-gray-600 dark:text-gray-400 hover:border-amber-300'
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
+                            isSelected
+                              ? `bg-gradient-to-r ${net.gradient} text-white shadow-lg border-transparent`
+                              : `${net.bg} ${net.border} ${net.color} hover:shadow-md`
                           }`}
                         >
                           <NetIcon size={14} />
@@ -724,14 +725,15 @@ export default function MilagresPage() {
                   <div className="flex flex-wrap gap-2">
                     {NETWORKS.map((net) => {
                       const NetIcon = net.icon
+                      const isSelected = promptNetwork === net.slug
                       return (
                         <button
                           key={net.slug}
                           onClick={() => setPromptNetwork(net.slug)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                            promptNetwork === net.slug
-                              ? 'bg-amber-500 text-white shadow-lg'
-                              : 'bg-white dark:bg-gray-800 border border-sage-100/50 dark:border-sage-800/30 text-gray-600 dark:text-gray-400 hover:border-amber-300'
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all border ${
+                            isSelected
+                              ? `bg-gradient-to-r ${net.gradient} text-white shadow-lg border-transparent`
+                              : `${net.bg} ${net.border} ${net.color} hover:shadow-md`
                           }`}
                         >
                           <NetIcon size={14} />
@@ -808,14 +810,15 @@ export default function MilagresPage() {
                   <div className="flex flex-wrap gap-2 mb-4">
                     {NETWORKS.map((net) => {
                       const NetIcon = net.icon
+                      const isSelected = targetNetwork === net.slug
                       return (
                         <button
                           key={net.slug}
                           onClick={() => { setTargetNetwork(net.slug); setSelectedPrompt(null) }}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                            targetNetwork === net.slug
-                              ? 'bg-gradient-to-r ' + net.gradient + ' text-white shadow-lg scale-105'
-                              : 'bg-white dark:bg-gray-800 border border-sage-100/50 dark:border-sage-800/30 text-gray-600 dark:text-gray-400 hover:border-amber-300 hover:scale-[1.02]'
+                          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+                            isSelected
+                              ? `bg-gradient-to-r ${net.gradient} text-white shadow-lg scale-105 border-transparent`
+                              : `${net.bg} ${net.border} ${net.color} hover:shadow-md hover:scale-[1.02]`
                           }`}
                         >
                           <NetIcon size={16} />
