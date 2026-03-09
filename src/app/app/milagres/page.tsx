@@ -270,6 +270,97 @@ export default function MilagresPage() {
     }
   }
 
+  const handleSaveAndGenerate = async () => {
+    if (!newContent.trim()) {
+      showToast('Cole o conteudo do milagre', 'error')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/miracles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          content: newContent.trim(),
+          source_network: newSourceNetwork,
+        }),
+      })
+      const data = await res.json()
+      if (data.miracle) {
+        setMiracles(prev => [data.miracle, ...prev])
+        setSelectedMiracle(data.miracle)
+        setShowNewForm(false)
+        setNewTitle('')
+        setNewContent('')
+        showToast('Milagre salvo! Gerando copy...', 'success')
+        // Auto-trigger generation after saving
+        setSaving(false)
+        setGenerating(true)
+        setGeneratedCopy('')
+        try {
+          const promptToUse = selectedPrompt?.target_network === targetNetwork ? selectedPrompt : null
+          const genRes = await fetch('/api/miracles/generate/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              miracle_id: data.miracle.id,
+              miracle_content: data.miracle.content,
+              target_network: targetNetwork,
+              prompt_id: promptToUse?.id,
+              custom_prompt: promptToUse?.system_prompt,
+              ai_provider: selectedAI,
+            }),
+          })
+          if (!genRes.ok) {
+            const err = await genRes.json().catch(() => ({}))
+            throw new Error(err.error || `Erro ${genRes.status}`)
+          }
+          const reader = genRes.body?.getReader()
+          if (!reader) throw new Error('Sem resposta')
+          const decoder = new TextDecoder()
+          let buffer = ''
+          let fullText = ''
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue
+              try {
+                const event = JSON.parse(line.slice(6))
+                if (event.type === 'text') {
+                  fullText += event.text
+                  setGeneratedCopy(fullText)
+                } else if (event.type === 'done') {
+                  loadCopies(data.miracle.id)
+                } else if (event.type === 'error') {
+                  throw new Error(event.error)
+                }
+              } catch (e: any) {
+                if (e.message && e.message !== 'Unexpected end of JSON input') throw e
+              }
+            }
+          }
+        } catch (err: any) {
+          console.error('Generate error:', err)
+          showToast(err?.message || 'Erro ao gerar copy', 'error')
+        } finally {
+          setGenerating(false)
+        }
+        return
+      } else {
+        showToast(data.error || 'Erro ao salvar', 'error')
+      }
+    } catch {
+      showToast('Erro ao salvar milagre', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleDeleteMiracle = async (id: string) => {
     const ok = await confirm({
       title: 'Excluir Milagre',
@@ -699,7 +790,7 @@ export default function MilagresPage() {
                   className="w-full px-3 py-2.5 mb-4 text-sm border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-1 focus:ring-amber-400 focus:border-amber-400 outline-none placeholder-gray-400 resize-y leading-relaxed"
                 />
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-5">
                   <button
                     onClick={handleSaveMiracle}
                     disabled={saving || !newContent.trim()}
@@ -709,11 +800,68 @@ export default function MilagresPage() {
                     Salvar
                   </button>
                   <button
+                    onClick={handleSaveAndGenerate}
+                    disabled={saving || generating || !newContent.trim()}
+                    className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {(saving || generating) ? <Loader2 className="animate-spin" size={15} /> : <Sparkles size={15} />}
+                    Salvar e Gerar
+                  </button>
+                  <button
                     onClick={() => setShowNewForm(false)}
                     className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                   >
                     Cancelar
                   </button>
+                </div>
+
+                {/* ── Inline Generation Options ── */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+                    <Sparkles size={15} className="text-amber-500" />
+                    Gerar Copy Para
+                  </h3>
+
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {NETWORKS.map((net) => (
+                      <NetworkPill
+                        key={net.slug}
+                        net={net}
+                        selected={targetNetwork === net.slug}
+                        onClick={() => { setTargetNetwork(net.slug); setSelectedPrompt(null) }}
+                        size="sm"
+                      />
+                    ))}
+                  </div>
+
+                  {/* Prompt selector for new form */}
+                  {networkPromptsForTarget.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                        Prompt {selectedPrompt ? `— ${selectedPrompt.name}` : '(padrao)'}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {networkPromptsForTarget.map((prompt) => (
+                          <button
+                            key={prompt.id}
+                            onClick={() => setSelectedPrompt(selectedPrompt?.id === prompt.id ? null : prompt)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                              selectedPrompt?.id === prompt.id
+                                ? 'bg-amber-500 text-white'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-amber-300'
+                            }`}
+                          >
+                            <Feather size={11} />
+                            {prompt.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-gray-400 italic">
+                    Clique em &quot;Salvar e Gerar&quot; para salvar o milagre e gerar a copy automaticamente.
+                  </p>
                 </div>
               </div>
             )}
