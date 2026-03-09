@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { MessageSquare, Sparkles, Share2, GraduationCap, FileText, Users, Activity, Settings, Sun, Moon, LogOut, Dna } from 'lucide-react'
+import { MessageSquare, Sparkles, Share2, GraduationCap, FileText, Users, Activity, Settings, Sun, Moon, LogOut, Dna, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -65,6 +65,14 @@ export default function AppLayoutClient({ user, profile, children, userModuleSlu
       icon: Dna,
       active: pathname.startsWith('/app/clone'),
       slug: 'clone-cognitivo',
+    },
+    {
+      name: 'Milagres',
+      shortName: 'Milagres',
+      href: '/app/milagres',
+      icon: Star,
+      active: pathname.startsWith('/app/milagres'),
+      slug: 'milagres',
     },
   ]
 
