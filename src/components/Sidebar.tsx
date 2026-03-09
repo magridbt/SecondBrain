@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Settings, Users, FileText, LogOut, Menu, X, Sun, Moon, Activity, Sparkles, ChevronRight, Share2 } from 'lucide-react'
+import { MessageSquare, Settings, Users, FileText, LogOut, Menu, X, Sun, Moon, Activity, Sparkles, ChevronRight, Share2, Star } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -171,6 +171,21 @@ export default function Sidebar({ user, profile }: SidebarProps) {
           >
             <Share2 size={18} className="flex-shrink-0" />
             <span className="text-sm font-medium flex-1 text-left">Redes Sociais</span>
+            <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+          <button
+            onClick={() => {
+              setMobileOpen(false)
+              router.push('/app/milagres')
+            }}
+            className={`mt-1.5 w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-all group ${
+              pathname.startsWith('/app/milagres')
+                ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Star size={18} className="flex-shrink-0" />
+            <span className="text-sm font-medium flex-1 text-left">Milagres</span>
             <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
         </div>
