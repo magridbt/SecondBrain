@@ -166,18 +166,17 @@ export async function POST(request: NextRequest) {
       if (error.code === '23505') {
         return NextResponse.json({ error: 'A prompt with this name already exists' }, { status: 400 })
       }
-      secureLog('error', 'Create prompt error', { error: error.message })
-      return NextResponse.json({ error: 'Failed to create prompt' }, { status: 500 })
+      secureLog('error', 'Create prompt error', { error: error.message, code: error.code })
+      return NextResponse.json({ error: 'Failed to create prompt', detail: error.message }, { status: 500 })
     }
 
     secureLog('info', 'Prompt created', { userId: user.id, promptId: prompt.id })
-
     return NextResponse.json(
       { prompt },
       { headers: getRateLimitHeaders({ limit, remaining, reset }) }
     )
   } catch (error) {
-    secureLog('error', 'Create prompt error', { error: error instanceof Error ? error.message : 'Unknown' })
+    secureLog('error', 'Create prompt exception', { error: error instanceof Error ? error.message : 'Unknown' })
     return NextResponse.json({ error: 'Failed to create prompt' }, { status: 500 })
   }
 }

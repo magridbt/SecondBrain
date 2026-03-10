@@ -1,6 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { checkUsageLimit, trackTokenUsageWithRetry } from '@/lib/token-tracking'
 
+const FORMAT_RULES = `
+
+REGRAS DE FORMATACAO (OBRIGATORIO):
+- NUNCA use markdown (nada de **, *, #, _, ~, \`).
+- Para dar enfase, use LETRAS MAIUSCULAS ou emojis relevantes.
+- Escreva texto puro, pronto para copiar e colar direto na rede social.
+- Use emojis com sabedoria para destacar pontos importantes e criar apelo visual.`
+
 const DEFAULT_PROMPTS: Record<string, string> = {
   youtube: `Voce e um especialista em conteudo para YouTube sobre espiritualidade e milagres.
 Transforme o relato de milagre abaixo em um roteiro envolvente para YouTube.
@@ -13,7 +21,7 @@ FORMATO:
 - CTA: Chamada para acao no final
 - DESCRICAO: Descricao do video com keywords (max 200 palavras)
 - TAGS: 10 tags relevantes separadas por virgula
-
+${FORMAT_RULES}
 Responda em Portugues Brasileiro. Mantenha o tom espiritual e inspirador.`,
 
   instagram: `Voce e um especialista em conteudo para Instagram sobre espiritualidade e milagres.
@@ -25,7 +33,7 @@ FORMATO:
 - REELS: Roteiro curto para Reels (15-30 segundos)
 - STORIES: 3-4 sequencias de stories
 - HASHTAGS: 20 hashtags relevantes
-
+${FORMAT_RULES}
 Responda em Portugues Brasileiro. Tom inspirador e acessivel.`,
 
   'x-twitter': `Voce e um especialista em conteudo para X (Twitter) sobre espiritualidade e milagres.
@@ -35,7 +43,7 @@ FORMATO:
 - TWEET PRINCIPAL: Post impactante (max 280 caracteres)
 - THREAD: 5-7 tweets que contam a historia completa
 - TWEET DE ENGAJAMENTO: Pergunta para gerar interacao
-
+${FORMAT_RULES}
 Responda em Portugues Brasileiro. Tom direto e inspirador.`,
 
   facebook: `Voce e um especialista em conteudo para Facebook sobre espiritualidade e milagres.
@@ -46,7 +54,7 @@ FORMATO:
 - Use paragrafos curtos e emojis com moderacao
 - Inclua uma pergunta no final para gerar engajamento
 - GRUPO: Versao adaptada para grupos de espiritualidade
-
+${FORMAT_RULES}
 Responda em Portugues Brasileiro. Tom caloroso e comunitario.`,
 
   linkedin: `Voce e um especialista em conteudo para LinkedIn sobre espiritualidade e transformacao pessoal.
@@ -57,7 +65,7 @@ FORMATO:
 - Use paragrafos curtos e espacamento
 - Inclua insight ou reflexao no final
 - HASHTAGS: 5 hashtags profissionais
-
+${FORMAT_RULES}
 Responda em Portugues Brasileiro. Tom profissional e inspirador.`,
 
   tiktok: `Voce e um especialista em conteudo para TikTok sobre espiritualidade e milagres.
@@ -69,7 +77,7 @@ FORMATO:
 - TEXTO NA TELA: Textos que aparecem durante o video
 - SOM: Sugestao de tipo de audio/musica de fundo
 - HASHTAGS: 10 hashtags trending + nicho
-
+${FORMAT_RULES}
 Responda em Portugues Brasileiro. Tom dinamico e envolvente.`,
 
   threads: `Voce e um especialista em conteudo para Threads sobre espiritualidade e milagres.
@@ -79,7 +87,7 @@ FORMATO:
 - POST: Texto conversacional e envolvente (max 500 caracteres)
 - SEQUENCIA: 3-4 posts conectados contando a historia
 - Mantenha o tom informal e autentico
-
+${FORMAT_RULES}
 Responda em Portugues Brasileiro. Tom conversacional.`,
 
   pinterest: `Voce e um especialista em conteudo para Pinterest sobre espiritualidade e milagres.
@@ -91,7 +99,7 @@ FORMATO:
 - BOARD: Sugestao de nome de board
 - IDEA PIN: 5 slides com texto inspirador extraido do milagre
 - KEYWORDS: 10 palavras-chave para SEO
-
+${FORMAT_RULES}
 Responda em Portugues Brasileiro. Tom inspirador e visual.`,
 }
 
@@ -137,29 +145,34 @@ async function callProviderStream(
     let inputTokens = 0
     let outputTokens = 0
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const jsonStr = line.slice(6).trim()
-        if (!jsonStr) continue
-        try {
-          const data = JSON.parse(jsonStr)
-          if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
-            textChunks.push(data.delta.text)
-            onText(data.delta.text)
-          } else if (data.type === 'message_delta' && data.usage) {
-            outputTokens = data.usage.output_tokens || 0
-          } else if (data.type === 'message_start' && data.message?.usage) {
-            inputTokens = data.message.usage.input_tokens || 0
-          }
-        } catch {}
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const jsonStr = line.slice(6).trim()
+          if (!jsonStr) continue
+          try {
+            const data = JSON.parse(jsonStr)
+            if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
+              textChunks.push(data.delta.text)
+              onText(data.delta.text)
+            } else if (data.type === 'message_delta' && data.usage) {
+              outputTokens = data.usage.output_tokens || 0
+            } else if (data.type === 'message_start' && data.message?.usage) {
+              inputTokens = data.message.usage.input_tokens || 0
+            }
+          } catch {}
+        }
       }
+    } catch (err) {
+      if (reader) reader.cancel().catch(() => {})
+      throw err
     }
 
     return { fullText: textChunks.join(''), inputTokens, outputTokens, model }
@@ -196,24 +209,29 @@ async function callProviderStream(
     const textChunks: string[] = []
     let buffer = ''
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
-        try {
-          const data = JSON.parse(line.slice(6))
-          const text = data.choices?.[0]?.delta?.content
-          if (text) {
-            textChunks.push(text)
-            onText(text)
-          }
-        } catch {}
+        for (const line of lines) {
+          if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
+          try {
+            const data = JSON.parse(line.slice(6))
+            const text = data.choices?.[0]?.delta?.content
+            if (text) {
+              textChunks.push(text)
+              onText(text)
+            }
+          } catch {}
+        }
       }
+    } catch (err) {
+      if (reader) reader.cancel().catch(() => {})
+      throw err
     }
 
     return { fullText: textChunks.join(''), inputTokens: 0, outputTokens: 0, model }
@@ -246,24 +264,29 @@ async function callProviderStream(
     const textChunks: string[] = []
     let buffer = ''
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        try {
-          const data = JSON.parse(line.slice(6))
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-          if (text) {
-            textChunks.push(text)
-            onText(text)
-          }
-        } catch {}
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const data = JSON.parse(line.slice(6))
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+            if (text) {
+              textChunks.push(text)
+              onText(text)
+            }
+          } catch {}
+        }
       }
+    } catch (err) {
+      if (reader) reader.cancel().catch(() => {})
+      throw err
     }
 
     return { fullText: textChunks.join(''), inputTokens: 0, outputTokens: 0, model }

@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
+
+const fidelitySchema = z.object({
+  message_id: z.string().uuid().optional(),
+  messageId: z.string().uuid().optional(),
+  fidelity: z.enum(['faithful', 'partial', 'unfaithful']),
+  comment: z.string().max(2000).optional(),
+  conversationId: z.string().optional(),
+  module: z.string().optional(),
+})
 
 export async function POST(request: Request) {
   try {
@@ -10,15 +20,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { messageId, fidelity, conversationId, module } = body
-
-    if (!messageId || !fidelity) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
-    if (!['faithful', 'partial', 'unfaithful'].includes(fidelity)) {
-      return NextResponse.json({ error: 'Invalid fidelity value' }, { status: 400 })
+    let parsed: z.infer<typeof fidelitySchema>
+    try {
+      parsed = fidelitySchema.parse(body)
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return NextResponse.json({ error: 'Validation failed', details: err.message }, { status: 400 })
+      }
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
+    }
+
+    const messageId = parsed.message_id || parsed.messageId
+    const fidelity = parsed.fidelity
+    const conversationId = parsed.conversationId
+    const module = parsed.module
+
+    if (!messageId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     // Check if fidelity feedback already exists

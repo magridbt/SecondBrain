@@ -18,6 +18,7 @@ export async function GET(request: Request) {
       .from('miracles')
       .select('*')
       .eq('user_id', user.id)
+      .eq('archived', false)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -45,7 +46,12 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
     const { title, content, source_network, tags } = body
 
     if (!content || typeof content !== 'string' || !content.trim()) {
@@ -87,7 +93,13 @@ export async function PATCH(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { id, title, content, source_network, tags } = await request.json()
+    let patchBody: any
+    try {
+      patchBody = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+    const { id, title, content, source_network, tags } = patchBody
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
 
     const updates: Record<string, unknown> = {}
@@ -114,7 +126,7 @@ export async function PATCH(request: Request) {
   }
 }
 
-// DELETE - Remove miracle
+// DELETE - Soft delete (archive) miracle — keeps data in DB, hides from UI
 export async function DELETE(request: Request) {
   try {
     const supabase = await createClient()
@@ -127,13 +139,13 @@ export async function DELETE(request: Request) {
 
     const { error } = await supabase
       .from('miracles')
-      .delete()
+      .update({ archived: true })
       .eq('id', id)
       .eq('user_id', user.id)
 
     if (error) {
-      console.error('Delete miracle error:', error)
-      return NextResponse.json({ error: 'Failed to delete miracle' }, { status: 500 })
+      console.error('Archive miracle error:', error)
+      return NextResponse.json({ error: 'Failed to archive miracle' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })

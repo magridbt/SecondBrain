@@ -64,29 +64,34 @@ async function callProviderStream(
     let inputTokens = 0
     let outputTokens = 0
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const jsonStr = line.slice(6).trim()
-        if (!jsonStr) continue
-        try {
-          const data = JSON.parse(jsonStr)
-          if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
-            textChunks.push(data.delta.text)
-            onText(data.delta.text)
-          } else if (data.type === 'message_delta' && data.usage) {
-            outputTokens = data.usage.output_tokens || 0
-          } else if (data.type === 'message_start' && data.message?.usage) {
-            inputTokens = data.message.usage.input_tokens || 0
-          }
-        } catch {}
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const jsonStr = line.slice(6).trim()
+          if (!jsonStr) continue
+          try {
+            const data = JSON.parse(jsonStr)
+            if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
+              textChunks.push(data.delta.text)
+              onText(data.delta.text)
+            } else if (data.type === 'message_delta' && data.usage) {
+              outputTokens = data.usage.output_tokens || 0
+            } else if (data.type === 'message_start' && data.message?.usage) {
+              inputTokens = data.message.usage.input_tokens || 0
+            }
+          } catch {}
+        }
       }
+    } catch (err) {
+      if (reader) reader.cancel().catch(() => {})
+      throw err
     }
 
     return { fullText: textChunks.join(''), inputTokens, outputTokens, model }
@@ -123,24 +128,29 @@ async function callProviderStream(
     const textChunks: string[] = []
     let buffer = ''
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
-        try {
-          const data = JSON.parse(line.slice(6))
-          const text = data.choices?.[0]?.delta?.content
-          if (text) {
-            textChunks.push(text)
-            onText(text)
-          }
-        } catch {}
+        for (const line of lines) {
+          if (!line.startsWith('data: ') || line === 'data: [DONE]') continue
+          try {
+            const data = JSON.parse(line.slice(6))
+            const text = data.choices?.[0]?.delta?.content
+            if (text) {
+              textChunks.push(text)
+              onText(text)
+            }
+          } catch {}
+        }
       }
+    } catch (err) {
+      if (reader) reader.cancel().catch(() => {})
+      throw err
     }
 
     return { fullText: textChunks.join(''), inputTokens: 0, outputTokens: 0, model }
@@ -173,24 +183,29 @@ async function callProviderStream(
     const textChunks: string[] = []
     let buffer = ''
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        try {
-          const data = JSON.parse(line.slice(6))
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-          if (text) {
-            textChunks.push(text)
-            onText(text)
-          }
-        } catch {}
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const data = JSON.parse(line.slice(6))
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+            if (text) {
+              textChunks.push(text)
+              onText(text)
+            }
+          } catch {}
+        }
       }
+    } catch (err) {
+      if (reader) reader.cancel().catch(() => {})
+      throw err
     }
 
     return { fullText: textChunks.join(''), inputTokens: 0, outputTokens: 0, model }

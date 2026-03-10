@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from 'react'
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
@@ -34,8 +34,23 @@ interface ToastProviderProps {
 
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const timeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map())
+
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach((timeout) => clearTimeout(timeout))
+      timeoutRefs.current.clear()
+    }
+  }, [])
 
   const dismissToast = useCallback((id: string) => {
+    // Clear the associated timeout when dismissing
+    const timeout = timeoutRefs.current.get(id)
+    if (timeout) {
+      clearTimeout(timeout)
+      timeoutRefs.current.delete(id)
+    }
     setToasts((prev) => prev.filter((toast) => toast.id !== id))
   }, [])
 
@@ -46,9 +61,11 @@ export function ToastProvider({ children }: ToastProviderProps) {
     setToasts((prev) => [...prev, newToast])
 
     if (duration > 0) {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
+        timeoutRefs.current.delete(id)
         dismissToast(id)
       }, duration)
+      timeoutRefs.current.set(id, timeout)
     }
   }, [dismissToast])
 

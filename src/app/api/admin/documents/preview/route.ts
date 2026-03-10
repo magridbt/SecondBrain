@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    if (!profile || profile.role !== 'admin') {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 

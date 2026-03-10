@@ -1,10 +1,29 @@
 'use client'
 
 import { User, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Copy, Check, BookOpen } from 'lucide-react'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import DocumentModal from './DocumentModal'
-import { highlightKeywords } from '@/lib/highlight-utils'
+import { getHighlightKeywords } from '@/lib/highlight-utils'
+
+function HighlightedText({ text, searchQuery }: { text: string; searchQuery: string }) {
+  const keywords = getHighlightKeywords(searchQuery)
+  if (!keywords || keywords.length === 0) return <>{text}</>
+
+  const splitRegex = new RegExp(`(${keywords.join('|')})`, 'gi')
+  const testRegex = new RegExp(`^(?:${keywords.join('|')})$`, 'i')
+  const parts = text.split(splitRegex)
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        testRegex.test(part)
+          ? <mark key={i} className="bg-amber-200 dark:bg-amber-800/50 px-0.5 rounded font-medium">{part}</mark>
+          : part
+      )}
+    </>
+  )
+}
 
 interface Source {
   documentName: string
@@ -35,7 +54,16 @@ export default function ChatMessage({ message }: MessageProps) {
   const [copied, setCopied] = useState(false)
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const modalTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isUser = message.role === 'user'
+
+  useEffect(() => {
+    return () => {
+      if (modalTimeoutRef.current) clearTimeout(modalTimeoutRef.current)
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+    }
+  }, [])
 
   const handleOpenDocument = (documentId: string) => {
     setSelectedDocumentId(documentId)
@@ -44,7 +72,8 @@ export default function ChatMessage({ message }: MessageProps) {
 
   const handleCloseModal = () => {
     setModalOpen(false)
-    setTimeout(() => setSelectedDocumentId(null), 300) // Clear after animation
+    if (modalTimeoutRef.current) clearTimeout(modalTimeoutRef.current)
+    modalTimeoutRef.current = setTimeout(() => setSelectedDocumentId(null), 300) // Clear after animation
   }
 
   const handleFeedback = async (type: 'like' | 'dislike') => {
@@ -80,7 +109,8 @@ export default function ChatMessage({ message }: MessageProps) {
 
       await navigator.clipboard.writeText(cleanText)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error('Failed to copy:', err)
     }
@@ -183,12 +213,9 @@ export default function ChatMessage({ message }: MessageProps) {
                         </div>
 
                         {/* Content - Full text with keyword highlighting */}
-                        <p
-                          className="text-gray-800 dark:text-gray-200 text-base leading-relaxed font-medium mb-3"
-                          dangerouslySetInnerHTML={{
-                            __html: highlightKeywords(primarySource.content, message.searchQuery || '')
-                          }}
-                        />
+                        <p className="text-gray-800 dark:text-gray-200 text-base leading-relaxed font-medium mb-3">
+                          <HighlightedText text={primarySource.content} searchQuery={message.searchQuery || ''} />
+                        </p>
 
                         {/* Action Button */}
                         <button
@@ -247,12 +274,9 @@ export default function ChatMessage({ message }: MessageProps) {
                                         </div>
                                       </div>
                                     </div>
-                                    <p
-                                      className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-3"
-                                      dangerouslySetInnerHTML={{
-                                        __html: highlightKeywords(source.content, message.searchQuery || '')
-                                      }}
-                                    />
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3 mb-3">
+                                      <HighlightedText text={source.content} searchQuery={message.searchQuery || ''} />
+                                    </p>
                                     <button
                                       onClick={() => handleOpenDocument(source.documentId)}
                                       className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition"

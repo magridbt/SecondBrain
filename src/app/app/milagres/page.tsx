@@ -32,6 +32,7 @@ import {
   Star,
   type LucideIcon,
 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 
 // ── Types ──
 
@@ -1049,11 +1050,9 @@ export default function MilagresPage() {
                         </div>
                       )}
                     </div>
-                    <div className="px-5 py-4">
-                      <pre className="whitespace-pre-wrap font-sans text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                        {generatedCopy}
-                        {generating && <span className="inline-block w-1 h-4 bg-amber-500 animate-pulse ml-0.5 align-middle rounded-sm" />}
-                      </pre>
+                    <div className="px-5 py-4 prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{generatedCopy || ''}</ReactMarkdown>
+                      {generating && <span className="inline-block w-1 h-4 bg-amber-500 animate-pulse ml-0.5 align-middle rounded-sm" />}
                     </div>
                   </div>
                 )}
@@ -1087,9 +1086,9 @@ export default function MilagresPage() {
                                 </button>
                               </div>
                             </div>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-4 whitespace-pre-wrap">
-                              {copy.generated_copy}
-                            </p>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-4 prose prose-xs dark:prose-invert max-w-none">
+                              <ReactMarkdown>{copy.generated_copy}</ReactMarkdown>
+                            </div>
                           </div>
                         )
                       })}

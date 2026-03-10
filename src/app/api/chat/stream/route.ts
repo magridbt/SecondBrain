@@ -202,8 +202,11 @@ export async function POST(request: Request) {
           // Send done event
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', conversationId: convId })}\n\n`))
         } catch (err: any) {
+          if (claudeReader) claudeReader.cancel().catch(() => {})
           console.error('Stream error:', err?.message || err)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: 'Erro ao gerar resposta' })}\n\n`))
+          controller.close()
+          return
         }
 
         controller.close()

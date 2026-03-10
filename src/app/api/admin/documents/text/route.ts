@@ -20,11 +20,17 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'admin') {
+    if (!profile || profile.role !== 'admin') {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const { source_id, name, content, metadata } = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+    const { source_id, name, content, metadata } = body
 
     if (!source_id || !name || !content) {
       return NextResponse.json(

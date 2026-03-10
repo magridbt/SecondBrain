@@ -12,7 +12,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
     }
 
-    const { messages } = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+    const { messages } = body
 
     if (!messages || messages.length === 0) {
       return NextResponse.json({ error: 'Mensagens obrigatorias' }, { status: 400 })

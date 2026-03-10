@@ -71,6 +71,40 @@ const STOPWORDS = new Set([
   'né', 'tá', 'viu', 'sabe', 'olha', 'ó', 'al', 'ai',
 ])
 
+// Returns an array of regex pattern strings for matching keywords in text.
+// Used by HighlightedText component for safe (non-innerHTML) highlighting.
+export function getHighlightKeywords(searchQuery: string): string[] {
+  if (!searchQuery || searchQuery.length === 0) {
+    return []
+  }
+
+  const keywordList = searchQuery
+    .toLowerCase()
+    .split(/[\s,?.!;:\-]+/)
+    .filter(word => word.length >= 3 && !STOPWORDS.has(word) && !/^\d+$/.test(word))
+    .slice(0, 5)
+
+  if (keywordList.length === 0) {
+    return []
+  }
+
+  const patterns: string[] = []
+
+  for (const word of keywordList) {
+    const stem = portugueseStem(word)
+
+    if (stem.length >= 3) {
+      const escapedStem = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      patterns.push(`(?:^|(?<=[^a-zA-ZÀ-ÿ]))${escapedStem}[a-zA-ZÀ-ÿ]*(?=[^a-zA-ZÀ-ÿ]|$)`)
+    } else {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      patterns.push(`(?:^|(?<=[^a-zA-ZÀ-ÿ]))${escaped}(?=[^a-zA-ZÀ-ÿ]|$)`)
+    }
+  }
+
+  return patterns
+}
+
 export function highlightKeywords(text: string, keywords: string): string {
   if (!keywords || keywords.length === 0 || !text) {
     return text

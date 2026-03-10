@@ -37,7 +37,7 @@ async function checkAdminAccess(supabase: Awaited<ReturnType<typeof createClient
     .single()
 
   return {
-    isAdmin: profile?.role === 'admin',
+    isAdmin: !!profile && profile.role === 'admin',
     fullName: profile?.full_name,
   }
 }
@@ -69,7 +69,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse and validate request body
-    const rawBody = await request.json()
+    let rawBody: any
+    try {
+      rawBody = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
     const validation = InviteCreateSchema.safeParse(rawBody)
 
     if (!validation.success) {
