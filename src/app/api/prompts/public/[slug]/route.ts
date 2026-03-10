@@ -4,11 +4,11 @@ import { NextResponse } from 'next/server'
 // GET - Get public prompt by slug
 export async function GET(
   request: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     const supabase = await createClient()
-    const { slug } = params
+    const { slug } = await params
 
     if (!slug) {
       return NextResponse.json({ error: 'Slug is required' }, { status: 400 })

@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 // POST - Adicionar mensagens a uma conversa existente
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -14,7 +14,8 @@ export async function POST(
       return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
     }
 
-    const conversationId = params.id
+    const { id } = await params
+    const conversationId = id
     let body: any
     try {
       body = await request.json()
@@ -72,7 +73,7 @@ export async function POST(
 // GET - Carregar mensagens de uma conversa
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -82,7 +83,8 @@ export async function GET(
       return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
     }
 
-    const conversationId = params.id
+    const { id } = await params
+    const conversationId = id
 
     // Verificar se a conversa pertence ao usuario
     const { data: conv } = await supabase
