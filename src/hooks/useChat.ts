@@ -8,11 +8,24 @@ interface FidelityInfo {
   warnings?: string[]
 }
 
+export interface ChatSource {
+  documentName: string
+  documentId: string
+  sourceName: string
+  content: string
+  score?: number
+  similarity?: number
+  similarityPercent?: number
+  date?: string
+  metadata?: Record<string, unknown>
+  rank?: number
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  sources?: any[]
+  sources?: ChatSource[]
   searchTerms?: string[]
   fidelity?: FidelityInfo
   directQuoteMode?: boolean

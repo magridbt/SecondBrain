@@ -155,7 +155,22 @@ export default function DirectChatPage({ category, title, icon: PageIcon, prompt
 
     try {
       // Auto-search for relevant teaching chunks (invisible RAG)
-      let autoChunks: any[] = []
+      interface SearchChunk {
+        id: string
+        content: string
+        sourceName: string
+        documentName: string
+      }
+
+      interface SearchResultItem {
+        id: string
+        content: string
+        sourceName?: string
+        documentName?: string
+        similarity?: number
+      }
+
+      let autoChunks: SearchChunk[] = []
       try {
         const searchResponse = await fetch('/api/daily-message/search', {
           method: 'POST',
@@ -166,9 +181,9 @@ export default function DirectChatPage({ category, title, icon: PageIcon, prompt
         if (searchData.results?.length) {
           // Pick top 5 most relevant chunks automatically
           autoChunks = searchData.results
-            .sort((a: any, b: any) => (b.similarity || 0) - (a.similarity || 0))
+            .sort((a: SearchResultItem, b: SearchResultItem) => (b.similarity || 0) - (a.similarity || 0))
             .slice(0, 5)
-            .map((r: any) => ({
+            .map((r: SearchResultItem) => ({
               id: r.id,
               content: r.content,
               sourceName: r.sourceName,
@@ -234,14 +249,14 @@ export default function DirectChatPage({ category, title, icon: PageIcon, prompt
             } else if (event.type === 'error') {
               throw new Error(event.error)
             }
-          } catch (e: any) {
-            if (e.message && e.message !== 'Unexpected end of JSON input') throw e
+          } catch (e: unknown) {
+            if (e instanceof Error && e.message && e.message !== 'Unexpected end of JSON input') throw e
           }
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error generating:', error)
-      const msg = error?.message || 'Erro desconhecido ao gerar mensagem'
+      const msg = error instanceof Error ? error.message : 'Erro desconhecido ao gerar mensagem'
       setGenerateError(msg)
       showToast(msg, 'error')
     } finally {

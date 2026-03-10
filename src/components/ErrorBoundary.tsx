@@ -26,13 +26,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    console.error('ErrorBoundary caught an error:', {
+      message: error?.message,
+      stack: error?.stack?.slice(0, 500),
+      componentStack: errorInfo?.componentStack?.slice(0, 500),
+      url: typeof window !== 'undefined' ? window.location.href : 'unknown',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+    })
     this.setState({ errorInfo })
-
-    // Log to your error tracking service here (e.g., Sentry)
-    // if (typeof window !== 'undefined' && window.Sentry) {
-    //   window.Sentry.captureException(error, { extra: errorInfo })
-    // }
   }
 
   private handleReset = () => {

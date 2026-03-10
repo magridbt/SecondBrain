@@ -110,7 +110,7 @@ export async function createTeachingPage(teaching: TeachingData): Promise<string
       subtitleParts.push(teaching.darshanDate)
     }
 
-    const body: any = {
+    const body: { name: string; subtitle: string; parentPageId?: string } = {
       name: teaching.name,
       subtitle: subtitleParts.join(' | '),
     }
@@ -194,7 +194,7 @@ export async function syncDocumentToCoda(document: {
   source_name: string
   type: string
   status: string
-  metadata?: any
+  metadata?: Record<string, unknown>
   chunk_count?: number
   created_at: string
   content?: string
@@ -210,9 +210,9 @@ export async function syncDocumentToCoda(document: {
     source: document.source_name,
     type: document.type,
     status: document.status,
-    language: document.metadata?.language,
-    programYear: document.metadata?.program_year,
-    darshanDate: document.metadata?.darshan_date,
+    language: document.metadata?.language as string | undefined,
+    programYear: document.metadata?.program_year as string | undefined,
+    darshanDate: document.metadata?.darshan_date as string | undefined,
     chunkCount: document.chunk_count,
     content: document.content,
     createdAt: document.created_at,
@@ -244,7 +244,7 @@ export async function updateCodaStatus(documentId: string, status: string, chunk
 
     if (rows?.items && rows.items.length > 0) {
       const rowId = rows.items[0].id
-      const cells: any[] = [{ column: 'Status', value: status }]
+      const cells: { column: string; value: string | number }[] = [{ column: 'Status', value: status }]
 
       if (chunkCount !== undefined) {
         cells.push({ column: 'Chunk_Count', value: chunkCount })

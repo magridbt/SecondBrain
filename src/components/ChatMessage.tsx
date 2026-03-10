@@ -34,7 +34,7 @@ interface Source {
   similarity?: number
   similarityPercent?: number
   date?: string
-  metadata?: any
+  metadata?: Record<string, unknown>
   rank?: number
 }
 

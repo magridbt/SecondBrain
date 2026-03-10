@@ -18,22 +18,32 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true)
-    // Carregar tema do localStorage
-    const savedTheme = localStorage.getItem('theme') as Theme
-    if (savedTheme) {
-      setThemeState(savedTheme)
-      document.documentElement.classList.toggle('dark', savedTheme === 'dark')
-    } else {
-      // Detectar preferencia do sistema
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setThemeState(prefersDark ? 'dark' : 'light')
-      document.documentElement.classList.toggle('dark', prefersDark)
+    // Carregar tema do localStorage com validação
+    try {
+      const savedTheme = localStorage.getItem('theme')
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        setThemeState(savedTheme)
+        document.documentElement.classList.toggle('dark', savedTheme === 'dark')
+      } else {
+        // Valor inválido ou ausente — detectar preferencia do sistema
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        const fallback = prefersDark ? 'dark' : 'light'
+        setThemeState(fallback)
+        document.documentElement.classList.toggle('dark', prefersDark)
+      }
+    } catch {
+      // localStorage indisponível — usar light como fallback
+      setThemeState('light')
     }
   }, [])
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme)
-    localStorage.setItem('theme', newTheme)
+    try {
+      localStorage.setItem('theme', newTheme)
+    } catch {
+      // localStorage quota exceeded or unavailable — ignore
+    }
     document.documentElement.classList.toggle('dark', newTheme === 'dark')
   }
 

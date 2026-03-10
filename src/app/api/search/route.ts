@@ -34,16 +34,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid query' }, { status: 400 })
     }
 
-    console.log(`🔍 Pure Search Query: "${query}"`)
-
     // Perform semantic search - NO CLAUDE, JUST RESULTS
     let searchResults: SearchResult[] = []
     try {
       // Get 12 best results with minimum 35% threshold (industry standard for semantic search)
       searchResults = await semanticSearch(query, 12, 0.35, LANGUAGE)
-      console.log(`✅ Search found ${searchResults.length} results (filtered: similarity >= 35%)`)
     } catch (searchError) {
-      console.error('❌ Semantic search failed:', searchError)
+      console.error('Semantic search failed')
       // Return empty results if search fails
       searchResults = []
     }
@@ -71,7 +68,7 @@ export async function POST(request: Request) {
       similarityPercent: Math.round((result.similarity || 0) * 100),
       metadata: result.metadata,
       date: result.metadata?.darshan_date
-        ? new Date(result.metadata.darshan_date).toLocaleDateString('pt-BR')
+        ? new Date(String(result.metadata.darshan_date)).toLocaleDateString('pt-BR')
         : undefined,
     }))
 

@@ -27,24 +27,33 @@ export default function Sidebar({ user, profile }: SidebarProps) {
   const [systemSubtitle, setSystemSubtitle] = useState('Sri Amma Bhagavan')
 
   useEffect(() => {
-    // Load branding from localStorage
-    const savedAvatar = localStorage.getItem('system_avatar_url')
-    const savedName = localStorage.getItem('system_name')
-    const savedSubtitle = localStorage.getItem('system_subtitle')
+    const stripHtml = (str: string) => str.replace(/<[^>]*>/g, '')
+    const isValidAvatarUrl = (url: string) =>
+      url.startsWith('https://') || url.startsWith('/')
 
-    if (savedAvatar) setAvatarUrl(savedAvatar)
-    if (savedName) setSystemName(savedName)
-    if (savedSubtitle) setSystemSubtitle(savedSubtitle)
+    const loadBranding = () => {
+      try {
+        const savedAvatar = localStorage.getItem('system_avatar_url')
+        const savedName = localStorage.getItem('system_name')
+        const savedSubtitle = localStorage.getItem('system_subtitle')
+
+        if (savedAvatar && isValidAvatarUrl(savedAvatar)) {
+          setAvatarUrl(savedAvatar)
+        } else {
+          setAvatarUrl(null)
+        }
+        if (savedName) setSystemName(stripHtml(savedName))
+        if (savedSubtitle) setSystemSubtitle(stripHtml(savedSubtitle))
+      } catch {
+        // localStorage unavailable — keep defaults
+      }
+    }
+
+    loadBranding()
 
     // Listen for branding changes (when settings are updated)
     const handleBrandingUpdate = () => {
-      const newAvatar = localStorage.getItem('system_avatar_url')
-      const newName = localStorage.getItem('system_name')
-      const newSubtitle = localStorage.getItem('system_subtitle')
-
-      setAvatarUrl(newAvatar)
-      if (newName) setSystemName(newName)
-      if (newSubtitle) setSystemSubtitle(newSubtitle)
+      loadBranding()
     }
 
     window.addEventListener('storage', handleBrandingUpdate)
@@ -93,6 +102,7 @@ export default function Sidebar({ user, profile }: SidebarProps) {
       {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
+        aria-expanded={mobileOpen}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md"
       >
         {mobileOpen ? <X size={24} /> : <Menu size={24} />}

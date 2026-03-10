@@ -4,11 +4,24 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2, Sparkles, Plus, Trash2, MessageSquare, Menu, X, Search, Bot } from 'lucide-react'
 import ChatMessage from '@/components/ChatMessage'
 
+interface Source {
+  documentName: string
+  documentId: string
+  sourceName: string
+  content: string
+  score?: number
+  similarity?: number
+  similarityPercent?: number
+  date?: string
+  metadata?: Record<string, unknown>
+  rank?: number
+}
+
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
-  sources?: any[]
+  sources?: Source[]
   searchQuery?: string
   created_at: string
   isStreaming?: boolean
@@ -276,8 +289,8 @@ export default function ChatPage() {
           }
         }
       }
-    } catch (error: any) {
-      if (error.name === 'AbortError') return
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') return
       console.error('Stream error:', error)
       setMessages((prev) => prev.map(m =>
         m.id === assistantId

@@ -85,8 +85,18 @@ export async function semanticSearch(
     // ============================================================================
     // TRY: Use optimized function first
     // ============================================================================
-    let chunks: any[] | null = null
-    let error: any = null
+    interface RpcChunk {
+      chunk_id: string
+      content: string
+      document_id: string
+      document_name: string
+      source_name: string
+      similarity: number
+      metadata?: Record<string, unknown>
+    }
+
+    let chunks: RpcChunk[] | null = null
+    let error: { message?: string } | null = null
 
     try {
       const result = await adminClient.rpc('search_teachings_optimized', {
@@ -102,9 +112,9 @@ export async function semanticSearch(
       if (!error) {
         console.log(`✅ OPTIMIZED SEARCH: Found ${chunks?.length || 0} results`)
       }
-    } catch (optimizedError) {
+    } catch (optimizedError: unknown) {
       console.warn('⚠️  Optimized function not available yet, using fallback...')
-      error = optimizedError
+      error = optimizedError instanceof Error ? { message: optimizedError.message } : { message: String(optimizedError) }
     }
 
     // ============================================================================
@@ -134,7 +144,7 @@ export async function semanticSearch(
       console.warn('⚠️  Vector search failed - falling back to fuzzy text search')
 
       const results = await fallbackTextSearch(adminClient, query, limit, language)
-      return results.map((r: any) => ({ ...r, fallbackMode: 'vector_search_error' }))
+      return results.map((r: SearchResult) => ({ ...r, fallbackMode: 'vector_search_error' }))
     }
 
     if (!chunks || chunks.length === 0) {
@@ -143,13 +153,13 @@ export async function semanticSearch(
       console.log(`📊 Threshold: ${(similarityThreshold * 100).toFixed(1)}%`)
 
       const results = await fallbackTextSearch(adminClient, query, limit, language)
-      return results.map((r: any) => ({ ...r, fallbackMode: 'no_vector_matches' }))
+      return results.map((r: SearchResult) => ({ ...r, fallbackMode: 'no_vector_matches' }))
     }
 
     // ============================================================================
     // MAP RESULTS
     // ============================================================================
-    return chunks.map((chunk: any) => ({
+    return chunks.map((chunk: RpcChunk) => ({
       id: chunk.chunk_id,
       content: chunk.content,
       documentId: chunk.document_id,
@@ -169,11 +179,30 @@ export async function semanticSearch(
 // FALLBACK TEXT SEARCH (unchanged)
 // ============================================================================
 async function fallbackTextSearch(
-  client: any,
+  client: ReturnType<typeof createAdminClient>,
   query: string,
   limit: number,
   language?: string | null
 ): Promise<SearchResult[]> {
+  interface FallbackChunk {
+    id: string
+    content: string
+    metadata?: Record<string, unknown>
+    document_id: string
+    documents?: {
+      id: string
+      name: string
+      status: string
+      deleted_at: string | null
+      metadata?: Record<string, unknown>
+      teaching_sources?: {
+        id: string
+        name: string
+        is_active: boolean
+      }
+    }
+  }
+
   console.log('Using fallback text search with fuzzy matching', language ? `(language: ${language})` : '(all languages)')
 
   try {
@@ -216,9 +245,12 @@ async function fallbackTextSearch(
       queryBuilder = queryBuilder.eq('documents.metadata->>language', language)
     }
 
-    let { data: chunks, error } = await queryBuilder
+    const queryResult = await queryBuilder
       .or(searchTerms.map(term => `content.ilike.%${term}%`).join(','))
       .limit(limit)
+
+    let chunks: FallbackChunk[] = (queryResult.data as unknown as FallbackChunk[]) || []
+    const error = queryResult.error
 
     if (error) {
       console.error('Fallback search error:', error)
@@ -226,7 +258,7 @@ async function fallbackTextSearch(
     }
 
     if (chunks && chunks.length > 0) {
-      const scoredResults = chunks.map((chunk: any) => {
+      const scoredResults = chunks.map((chunk: FallbackChunk) => {
         let fuzzyScore = 0.5
 
         const contentLower = chunk.content.toLowerCase()
@@ -248,13 +280,13 @@ async function fallbackTextSearch(
       })
 
       return scoredResults
-        .sort((a: any, b: any) => b.similarity - a.similarity)
+        .sort((a: SearchResult, b: SearchResult) => b.similarity - a.similarity)
         .slice(0, limit)
     }
 
     console.log('No exact matches found, trying fuzzy matching across all content...')
 
-    const { data: allChunks, error: allError } = await client
+    const allResult = await client
       .from('document_chunks')
       .select(`
         id,
@@ -279,12 +311,15 @@ async function fallbackTextSearch(
       .eq('documents.teaching_sources.is_active', true)
       .limit(100)
 
+    const allChunks = allResult.data as unknown as FallbackChunk[] | null
+    const allError = allResult.error
+
     if (allError || !allChunks) {
       return []
     }
 
     const fuzzyResults = allChunks
-      .map((chunk: any) => {
+      .map((chunk: FallbackChunk) => {
         const keywords = findFuzzyKeywordsInContent(query, chunk.content, 0.65)
         const fuzzyScore = keywords.length > 0
           ? Math.max(...keywords.map(k => k.score))
@@ -301,8 +336,8 @@ async function fallbackTextSearch(
           isFuzzyMatch: fuzzyScore > 0
         }
       })
-      .filter((result: any) => result.similarity > 0.5)
-      .sort((a: any, b: any) => b.similarity - a.similarity)
+      .filter((result: SearchResult) => result.similarity > 0.5)
+      .sort((a: SearchResult, b: SearchResult) => b.similarity - a.similarity)
       .slice(0, limit)
 
     if (fuzzyResults.length > 0) {
@@ -324,5 +359,7 @@ export interface SearchResult {
   documentName: string
   sourceName: string
   similarity: number
-  metadata?: any
+  metadata?: Record<string, unknown>
+  isFuzzyMatch?: boolean
+  fallbackMode?: string
 }

@@ -101,8 +101,8 @@ export async function POST(request: Request) {
     })
 
     if (!claudeResponse.ok) {
-      const errBody = await claudeResponse.text().catch(() => '')
-      console.error('Anthropic API error:', claudeResponse.status, errBody)
+      await claudeResponse.text().catch(() => '')
+      console.error('Anthropic API error: status', claudeResponse.status)
       return new Response(JSON.stringify({ error: 'Erro na API de IA' }), { status: 502 })
     }
 

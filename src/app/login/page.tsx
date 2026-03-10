@@ -38,7 +38,16 @@ export default function LoginPage() {
       window.location.href = '/app/chat'
     } catch (err: any) {
       console.error('LOGIN ERROR:', err)
-      setError(`Erro: ${err.message} (código: ${err.status || err.code || 'desconhecido'})`)
+      // User-friendly messages — never expose API internals
+      if (err.message?.includes('Invalid login')) {
+        setError('Email ou senha incorretos. Tente novamente.')
+      } else if (err.message?.includes('Email not confirmed')) {
+        setError('Email ainda não confirmado. Verifique sua caixa de entrada.')
+      } else if (err.status === 429 || err.message?.includes('rate')) {
+        setError('Muitas tentativas. Aguarde alguns minutos e tente novamente.')
+      } else {
+        setError('Não foi possível realizar o login. Tente novamente mais tarde.')
+      }
     } finally {
       setLoading(false)
     }
