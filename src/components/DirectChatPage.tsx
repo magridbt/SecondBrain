@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import ConversationSidebar, { SidebarItem } from '@/components/ConversationSidebar'
 import {
   Send,
   Loader2,
@@ -12,7 +13,6 @@ import {
   Copy,
   History,
   Plus,
-  Trash2,
   Zap,
   X,
   Heart,
@@ -97,7 +97,6 @@ export default function DirectChatPage({ category, title, icon: PageIcon, prompt
   const [showHistory, setShowHistory] = useState(true)
   const [history, setHistory] = useState<DailyMessage[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
-  const [historyFilter, setHistoryFilter] = useState('')
   const [currentMessageId, setCurrentMessageId] = useState<string | null>(null)
 
   const [prompts, setPrompts] = useState<CustomPrompt[]>([])
@@ -336,18 +335,20 @@ export default function DirectChatPage({ category, title, icon: PageIcon, prompt
     setIsEditing(false)
   }
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('pt-BR', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    })
-  }
+  // Map history to SidebarItem[]
+  const sidebarItems: SidebarItem[] = useMemo(() =>
+    history.map(msg => ({
+      id: msg.id,
+      title: msg.topic || 'Sem título',
+      date: msg.created_at,
+    })),
+    [history]
+  )
 
-  const filteredHistory = historyFilter.trim()
-    ? history.filter(msg =>
-        msg.topic.toLowerCase().includes(historyFilter.toLowerCase()) ||
-        msg.generated_message?.toLowerCase().includes(historyFilter.toLowerCase())
-      )
-    : history
+  const handleSidebarSelect = (id: string) => {
+    const message = history.find(msg => msg.id === id)
+    if (message) handleLoadMessage(message)
+  }
 
   const getPromptIcon = (iconName: string) => ICON_MAP[iconName] || Sparkles
   const getPromptColor = (colorName: string) => COLOR_MAP[colorName] || 'bg-sage-500'
@@ -356,60 +357,23 @@ export default function DirectChatPage({ category, title, icon: PageIcon, prompt
   return (
     <div className="flex h-full">
       {/* History Sidebar */}
-      {showHistory && (
-        <div className="w-80 bg-white dark:bg-gray-900 border-r border-sage-100/50 dark:border-sage-800/30 flex flex-col flex-shrink-0">
-          <div className="p-4 border-b border-sage-100/50 dark:border-sage-800/30">
-            <button
-              onClick={handleNewMessage}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-sage-500 to-sage-400 hover:from-sage-600 hover:to-sage-500 text-white font-semibold rounded-xl transition-all shadow-sage text-sm"
-            >
-              <Plus size={16} />
-              Nova Mensagem
-            </button>
-          </div>
-          <div className="px-4 py-2">
-            <input
-              type="text"
-              value={historyFilter}
-              onChange={(e) => setHistoryFilter(e.target.value)}
-              placeholder="Filtrar..."
-              className="w-full px-3 py-2 text-sm border border-sage-100/50 dark:border-sage-800/30 bg-gray-50 dark:bg-gray-800 rounded-lg focus:ring-2 focus:ring-sage-400 outline-none"
-            />
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {loadingHistory ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="animate-spin text-sage-500" size={20} />
-              </div>
-            ) : filteredHistory.length === 0 ? (
-              <p className="text-center text-gray-400 text-sm py-8">Sem histórico</p>
-            ) : (
-              filteredHistory.map((msg) => (
-                <div
-                  key={msg.id}
-                  onClick={() => handleLoadMessage(msg)}
-                  className={`px-4 py-3 cursor-pointer border-b border-gray-100 dark:border-gray-800 hover:bg-sage-50/50 dark:hover:bg-sage-900/10 transition-colors group ${
-                    currentMessageId === msg.id ? 'bg-sage-50 dark:bg-sage-900/20 border-l-2 border-l-sage-500' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{msg.topic}</p>
-                      <p className="text-xs text-gray-400 mt-1">{formatDate(msg.created_at)}</p>
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(msg.id) }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-gray-400 hover:text-red-500 transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+      <ConversationSidebar
+        items={sidebarItems}
+        activeId={currentMessageId}
+        loading={loadingHistory}
+        onSelect={handleSidebarSelect}
+        onDelete={handleDelete}
+        onNew={handleNewMessage}
+        open={showHistory}
+        width="w-80"
+        colorTheme="sage"
+        newButtonText="Nova Mensagem"
+        emptyMessage="Sem histórico"
+        searchable={true}
+        groupByDate={true}
+        renamable={false}
+        showCount={true}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">

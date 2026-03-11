@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Sparkles, Plus, Trash2, MessageSquare, Menu, X, Search, Bot } from 'lucide-react'
+import { Send, Loader2, Sparkles, Menu, X, Search, Bot } from 'lucide-react'
 import ChatMessage from '@/components/ChatMessage'
+import ConversationSidebar, { SidebarItem, SidebarTheme } from '@/components/ConversationSidebar'
 
 interface Source {
   documentName: string
@@ -37,6 +38,60 @@ interface Conversation {
 
 type ChatMode = 'search' | 'ai'
 
+// Static theme question mappings for common themes
+const themeQuestionsMap: Record<string, string[]> = {
+  'Deeksha': [
+    'O que é Deeksha e como ela funciona?',
+    'Quais são os efeitos da Deeksha no cérebro?',
+    'Como receber Deeksha à distância?',
+    'Qual a diferença entre Deeksha e outras práticas espirituais?',
+  ],
+  'Iluminação': [
+    'O que Sri Amma Bhagavan define como iluminação?',
+    'Como alcançar a iluminação segundo os ensinamentos?',
+    'Qual a diferença entre iluminação e despertar?',
+    'A iluminação é possível para todos?',
+  ],
+  'Relacionamentos': [
+    'Como melhorar os relacionamentos segundo Sri Amma Bhagavan?',
+    'Qual o papel do relacionamento na jornada espiritual?',
+    'Como lidar com conflitos nos relacionamentos?',
+    'O que Sri Amma Bhagavan ensina sobre o amor nos relacionamentos?',
+  ],
+  'Sofrimento': [
+    'Qual a causa raiz do sofrimento segundo os ensinamentos?',
+    'Como transcender o sofrimento?',
+    'O sofrimento tem algum propósito espiritual?',
+    'Como lidar com o sofrimento emocional?',
+  ],
+  'Gratidão': [
+    'Qual a importância da gratidão nos ensinamentos?',
+    'Como praticar gratidão no dia a dia?',
+    'A gratidão pode transformar a vida espiritual?',
+    'Quais práticas de gratidão Sri Amma Bhagavan recomenda?',
+  ],
+  'Meditação': [
+    'Quais meditações Sri Amma Bhagavan recomenda?',
+    'Como meditar corretamente segundo os ensinamentos?',
+    'Qual a diferença entre meditação e contemplação?',
+    'A meditação é necessária para o despertar?',
+  ],
+}
+
+const getThemeSuggestions = (themeName: string): string[] => [
+  `O que Sri Amma Bhagavan ensina sobre ${themeName}?`,
+  `Como praticar ${themeName} no dia a dia?`,
+  `Qual a importância de ${themeName} nos ensinamentos?`,
+  `Me conte um ensinamento sobre ${themeName}`,
+]
+
+function getThemeQuestions(themeName: string): string[] {
+  if (themeQuestionsMap[themeName]) {
+    return themeQuestionsMap[themeName]
+  }
+  return getThemeSuggestions(themeName)
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -49,6 +104,11 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  // Theme state
+  const [themes, setThemes] = useState<SidebarTheme[]>([])
+  const [loadingThemes, setLoadingThemes] = useState(false)
+  const [selectedTheme, setSelectedTheme] = useState<SidebarTheme | null>(null)
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -57,9 +117,9 @@ export default function ChatPage() {
     scrollToBottom()
   }, [messages])
 
-  // Carregar lista de conversas
   useEffect(() => {
     loadConversations()
+    loadThemes()
   }, [])
 
   const loadConversations = async () => {
@@ -76,8 +136,24 @@ export default function ChatPage() {
     }
   }
 
+  const loadThemes = async () => {
+    setLoadingThemes(true)
+    try {
+      const response = await fetch('/api/themes')
+      const data = await response.json()
+      if (data.themes) {
+        setThemes(data.themes)
+      }
+    } catch (error) {
+      console.error('Error loading themes:', error)
+    } finally {
+      setLoadingThemes(false)
+    }
+  }
+
   const loadConversation = async (convId: string) => {
     setLoading(true)
+    setSelectedTheme(null)
     try {
       const response = await fetch(`/api/conversations/${convId}`)
       const data = await response.json()
@@ -96,14 +172,12 @@ export default function ChatPage() {
     setMessages([])
     setConversationId(null)
     setInput('')
+    setSelectedTheme(null)
   }
 
-  const deleteConversation = async (convId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!confirm('Tem certeza que quer deletar esta conversa?')) return
-
+  const deleteConversation = (convId: string) => {
     try {
-      await fetch(`/api/conversations?id=${convId}`, { method: 'DELETE' })
+      fetch(`/api/conversations?id=${convId}`, { method: 'DELETE' })
       setConversations(prev => prev.filter(c => c.id !== convId))
       if (conversationId === convId) {
         startNewChat()
@@ -112,6 +186,42 @@ export default function ChatPage() {
       console.error('Error deleting conversation:', error)
     }
   }
+
+  const renameConversation = async (convId: string, newTitle: string) => {
+    const trimmed = newTitle.trim()
+    if (!trimmed) return
+
+    // Optimistic update
+    setConversations(prev =>
+      prev.map(c => c.id === convId ? { ...c, title: trimmed } : c)
+    )
+
+    try {
+      await fetch(`/api/conversations/${convId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: trimmed }),
+      })
+    } catch (error) {
+      console.error('Error renaming conversation:', error)
+      // Reload to revert on error
+      loadConversations()
+    }
+  }
+
+  const handleThemeClick = (theme: SidebarTheme) => {
+    setSelectedTheme(theme)
+    setMessages([])
+    setConversationId(null)
+    setInput(theme.name_pt)
+  }
+
+  // Map conversations to SidebarItem[]
+  const sidebarItems: SidebarItem[] = conversations.map(conv => ({
+    id: conv.id,
+    title: conv.title,
+    date: conv.updated_at,
+  }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -127,6 +237,7 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMessage])
     setInput('')
     setLoading(true)
+    setSelectedTheme(null)
 
     if (chatMode === 'ai') {
       await handleAIStream(userMessage)
@@ -284,7 +395,7 @@ export default function ChatPage() {
                   : m
               ))
             }
-          } catch (e) {
+          } catch {
             // Skip malformed events
           }
         }
@@ -303,89 +414,38 @@ export default function ChatPage() {
     }
   }
 
-  const suggestedQuestions = [
+  const defaultSuggestedQuestions = [
     'O que é Deeksha e como funciona?',
     'Como posso encontrar paz interior?',
     'Qual a importância da gratidão?',
     'Como lidar com o sofrimento?',
   ]
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) return 'Hoje'
-    if (diffDays === 1) return 'Ontem'
-    if (diffDays < 7) return `${diffDays} dias atrás`
-    return date.toLocaleDateString('pt-BR')
-  }
+  const suggestedQuestions = selectedTheme
+    ? getThemeQuestions(selectedTheme.name_pt)
+    : defaultSuggestedQuestions
 
   return (
     <div className="flex h-full">
       {/* Sidebar */}
-      <div className={`
-        ${sidebarOpen ? 'w-72' : 'w-0'}
-        bg-white dark:bg-black border-r border-gray-200 dark:border-gray-700 transition-all duration-300 overflow-hidden flex-shrink-0
-      `}>
-        <div className="flex flex-col h-full w-72">
-          {/* New Chat Button */}
-          <div className="p-3 border-b border-gray-100 dark:border-gray-700">
-            <button
-              onClick={startNewChat}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg transition shadow-sm"
-            >
-              <Plus size={18} />
-              <span className="font-medium">Nova conversa</span>
-            </button>
-          </div>
-
-          {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto px-3 py-3">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 px-2">
-              Histórico
-            </p>
-            {loadingConversations ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="animate-spin text-gray-400" size={20} />
-              </div>
-            ) : conversations.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                Nenhuma conversa ainda
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {conversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    onClick={() => loadConversation(conv.id)}
-                    className={`
-                      group flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition
-                      ${conversationId === conv.id
-                        ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-500'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                      }
-                    `}
-                  >
-                    <MessageSquare size={16} className={`flex-shrink-0 ${conversationId === conv.id ? 'text-green-600 dark:text-green-500' : 'text-gray-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate font-medium">{conv.title}</p>
-                      <p className="text-xs text-gray-400">{formatDate(conv.updated_at)}</p>
-                    </div>
-                    <button
-                      onClick={(e) => deleteConversation(conv.id, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition"
-                      title="Deletar conversa"
-                    >
-                      <Trash2 size={14} className="text-gray-400 hover:text-red-500" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <ConversationSidebar
+        items={sidebarItems}
+        activeId={conversationId}
+        loading={loadingConversations}
+        onSelect={loadConversation}
+        onDelete={deleteConversation}
+        onNew={startNewChat}
+        onRename={renameConversation}
+        open={sidebarOpen}
+        width="w-72"
+        colorTheme="green"
+        searchable
+        groupByDate
+        renamable
+        themes={themes}
+        loadingThemes={loadingThemes}
+        onThemeClick={handleThemeClick}
+      />
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -399,11 +459,21 @@ export default function ChatPage() {
           </button>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
-              <Sparkles className="text-white" size={16} />
+              {selectedTheme ? (
+                <span className="text-base">{selectedTheme.icon}</span>
+              ) : (
+                <Sparkles className="text-white" size={16} />
+              )}
             </div>
             <div>
-              <h1 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Ensinamentos Sri AB</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Ensinamentos de Sri Amma Bhagavan</p>
+              <h1 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+                {selectedTheme ? selectedTheme.name_pt : 'Ensinamentos Sri AB'}
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {selectedTheme
+                  ? 'Explore este tema nos ensinamentos'
+                  : 'Ensinamentos de Sri Amma Bhagavan'}
+              </p>
             </div>
           </div>
 
@@ -439,14 +509,15 @@ export default function ChatPage() {
           {messages.length === 0 ? (
             <div className="max-w-2xl mx-auto text-center py-12">
               <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full mx-auto mb-6 flex items-center justify-center">
-                <span className="text-4xl">🙏</span>
+                <span className="text-4xl">{selectedTheme ? selectedTheme.icon : '\u{1F64F}'}</span>
               </div>
               <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-3">
-                Namaste!
+                {selectedTheme ? selectedTheme.name_pt : 'Namaste!'}
               </h2>
               <p className="text-gray-600 dark:text-gray-300 mb-8">
-                Sou Ensinamentos Sri AB, seu guia para os ensinamentos de Sri Amma Bhagavan.
-                Faça sua pergunta e buscarei sabedoria nos ensinamentos originais.
+                {selectedTheme
+                  ? `Explore os ensinamentos de Sri Amma Bhagavan sobre ${selectedTheme.name_pt}. Escolha uma pergunta ou escreva a sua.`
+                  : 'Sou Ensinamentos Sri AB, seu guia para os ensinamentos de Sri Amma Bhagavan. Faça sua pergunta e buscarei sabedoria nos ensinamentos originais.'}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {suggestedQuestions.map((question, i) => (

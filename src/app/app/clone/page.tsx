@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Plus, Trash2, MessageSquare, Menu, X, Dna } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { Send, Loader2, Menu, X, Dna } from 'lucide-react'
 import ChatMessage from '@/components/ChatMessage'
+import ConversationSidebar, { SidebarItem } from '@/components/ConversationSidebar'
 
 interface Message {
   id: string
@@ -81,10 +82,7 @@ export default function ClonePage() {
     setInput('')
   }
 
-  const deleteConversation = async (convId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!confirm('Tem certeza que quer deletar esta conversa?')) return
-
+  const handleDeleteConversation = useCallback(async (convId: string) => {
     try {
       await fetch(`/api/conversations?id=${convId}`, { method: 'DELETE' })
       setConversations(prev => prev.filter(c => c.id !== convId))
@@ -94,7 +92,28 @@ export default function ClonePage() {
     } catch (error) {
       console.error('Error deleting conversation:', error)
     }
-  }
+  }, [conversationId])
+
+  const handleRenameConversation = useCallback(async (convId: string, newTitle: string) => {
+    // Optimistic update
+    setConversations(prev =>
+      prev.map(c => c.id === convId ? { ...c, title: newTitle } : c)
+    )
+    try {
+      const response = await fetch(`/api/conversations/${convId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle }),
+      })
+      if (!response.ok) {
+        // Revert on failure
+        loadConversations()
+      }
+    } catch (error) {
+      console.error('Error renaming conversation:', error)
+      loadConversations()
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -223,80 +242,32 @@ export default function ClonePage() {
     'O que e a graca e como ela funciona?',
   ]
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) return 'Hoje'
-    if (diffDays === 1) return 'Ontem'
-    if (diffDays < 7) return `${diffDays} dias atrás`
-    return date.toLocaleDateString('pt-BR')
-  }
+  // Map conversations to SidebarItem[]
+  const sidebarItems: SidebarItem[] = conversations.map(conv => ({
+    id: conv.id,
+    title: conv.title,
+    date: conv.updated_at,
+  }))
 
   return (
     <div className="flex h-full">
       {/* Conversations Sidebar */}
-      <div className={`
-        ${sidebarOpen ? 'w-72' : 'w-0'}
-        bg-white dark:bg-black border-r border-gray-200 dark:border-gray-700 transition-all duration-300 overflow-hidden flex-shrink-0
-      `}>
-        <div className="flex flex-col h-full w-72">
-          <div className="p-3 border-b border-gray-100 dark:border-gray-700">
-            <button
-              onClick={startNewChat}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg transition shadow-sm"
-            >
-              <Plus size={18} />
-              <span className="font-medium">Nova conversa</span>
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-3 py-3">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3 px-2">
-              Histórico
-            </p>
-            {loadingConversations ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="animate-spin text-gray-400" size={20} />
-              </div>
-            ) : conversations.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                Nenhuma conversa ainda
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {conversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    onClick={() => loadConversation(conv.id)}
-                    className={`
-                      group flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition
-                      ${conversationId === conv.id
-                        ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                      }
-                    `}
-                  >
-                    <MessageSquare size={16} className={`flex-shrink-0 ${conversationId === conv.id ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate font-medium">{conv.title}</p>
-                      <p className="text-xs text-gray-400">{formatDate(conv.updated_at)}</p>
-                    </div>
-                    <button
-                      onClick={(e) => deleteConversation(conv.id, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition"
-                      title="Deletar conversa"
-                    >
-                      <Trash2 size={14} className="text-gray-400 hover:text-red-500" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <ConversationSidebar
+        items={sidebarItems}
+        activeId={conversationId}
+        loading={loadingConversations}
+        onSelect={loadConversation}
+        onDelete={handleDeleteConversation}
+        onNew={startNewChat}
+        onRename={handleRenameConversation}
+        open={sidebarOpen}
+        width="w-72"
+        colorTheme="purple"
+        newButtonText="Nova conversa"
+        searchable={true}
+        groupByDate={true}
+        renamable={true}
+      />
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">

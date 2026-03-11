@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { highlightKeywords } from '@/lib/highlight-utils'
 import { useToast } from '@/components/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import ConversationSidebar, { SidebarItem } from '@/components/ConversationSidebar'
 import {
   Search,
   Loader2,
@@ -140,6 +141,7 @@ export default function ContentGeneratorPage({ category, title, icon: PageIcon, 
   const [isEditing, setIsEditing] = useState(false)
   const [editedMessage, setEditedMessage] = useState('')
   const [generateError, setGenerateError] = useState('')
+  const [dismissedEmptyState, setDismissedEmptyState] = useState(false)
   const [lastGeneratedChunks, setLastGeneratedChunks] = useState<string[]>([])
   const messageRef = useRef<HTMLTextAreaElement>(null)
 
@@ -147,7 +149,6 @@ export default function ContentGeneratorPage({ category, title, icon: PageIcon, 
   const [showHistory, setShowHistory] = useState(true)
   const [history, setHistory] = useState<DailyMessage[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
-  const [historyFilter, setHistoryFilter] = useState('')
 
   // Current message being edited/viewed
   const [currentMessageId, setCurrentMessageId] = useState<string | null>(null)
@@ -475,119 +476,41 @@ export default function ContentGeneratorPage({ category, title, icon: PageIcon, 
     setSelectedPrompt(null)
   }
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
-  const filteredHistory = historyFilter.trim()
-    ? history.filter(msg =>
-        msg.topic.toLowerCase().includes(historyFilter.toLowerCase()) ||
-        msg.generated_message?.toLowerCase().includes(historyFilter.toLowerCase())
-      )
-    : history
-
   const getPromptIcon = (iconName: string) => ICON_MAP[iconName] || Sparkles
   const getPromptColor = (colorName: string) => COLOR_MAP[colorName] || 'bg-sage-500'
   const selectedAIProvider = AI_PROVIDERS.find(p => p.id === selectedAI) || AI_PROVIDERS[0]
 
+  // Map history to SidebarItem[]
+  const sidebarItems: SidebarItem[] = history.map(msg => ({
+    id: msg.id,
+    title: msg.topic || 'Sem título',
+    date: msg.created_at,
+  }))
+
   return (
     <div className="flex h-full">
       {/* Sidebar - Histórico */}
-      <div className={`
-        ${showHistory ? 'w-80' : 'w-0'}
-        bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-r border-sage-100/50 dark:border-sage-800/30 transition-all duration-300 overflow-hidden flex-shrink-0
-      `}>
-        <div className="flex flex-col h-full w-80">
-          <div className="p-4 border-b border-sage-100/50 dark:border-sage-800/30">
-            <button
-              onClick={handleNewMessage}
-              className="w-full flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-sage-500 to-sage-400 hover:from-sage-600 hover:to-sage-500 text-white rounded-2xl transition-all duration-300 shadow-sage hover:shadow-sage-lg transform hover:-translate-y-0.5"
-            >
-              <Plus size={18} />
-              <span className="font-semibold">Nova Mensagem</span>
-            </button>
-          </div>
-
-          {/* Filter */}
-          <div className="px-3 pt-3 pb-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-              <input
-                type="text"
-                value={historyFilter}
-                onChange={(e) => setHistoryFilter(e.target.value)}
-                placeholder="Filtrar historico..."
-                className="w-full pl-9 pr-8 py-2 text-sm border border-sage-100/50 dark:border-sage-800/30 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl focus:ring-1 focus:ring-sage-400 outline-none transition-all placeholder-gray-400"
-              />
-              {historyFilter && (
-                <button
-                  onClick={() => setHistoryFilter('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-3 py-2">
-            <div className="flex items-center justify-between mb-2 px-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Historico
-              </p>
-              <span className="text-xs text-gray-400">
-                {filteredHistory.length}{historyFilter ? `/${history.length}` : ''}
-              </span>
-            </div>
-            {loadingHistory ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="animate-spin text-sage-400" size={20} />
-              </div>
-            ) : filteredHistory.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                {historyFilter ? 'Nenhum resultado para este filtro' : 'Nenhuma mensagem ainda'}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {filteredHistory.map((msg) => (
-                  <div
-                    key={msg.id}
-                    onClick={() => handleLoadMessage(msg)}
-                    className={`
-                      group flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200
-                      ${currentMessageId === msg.id
-                        ? 'bg-gradient-to-r from-sage-500/10 to-sage-400/10 text-sage-700 dark:text-sage-400 border border-sage-200/50 dark:border-sage-700/30'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-sage-50/50 dark:hover:bg-sage-900/20'
-                      }
-                    `}
-                  >
-                    <PageIcon size={16} className={`flex-shrink-0 ${currentMessageId === msg.id ? 'text-sage-600 dark:text-sage-400' : 'text-gray-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate font-medium">{msg.topic}</p>
-                      <p className="text-xs text-gray-400">{formatDate(msg.created_at)}</p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDelete(msg.id)
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200"
-                    >
-                      <Trash2 size={14} className="text-gray-400 hover:text-red-500" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <ConversationSidebar
+        items={sidebarItems}
+        activeId={currentMessageId}
+        loading={loadingHistory}
+        onSelect={(id) => {
+          const msg = history.find(h => h.id === id)
+          if (msg) handleLoadMessage(msg)
+        }}
+        onDelete={(id) => handleDelete(id)}
+        onNew={handleNewMessage}
+        open={showHistory}
+        width="w-80"
+        colorTheme="sage"
+        newButtonText="Nova Mensagem"
+        emptyMessage="Nenhuma mensagem ainda"
+        searchable={true}
+        groupByDate={true}
+        renamable={false}
+        itemIcon={PageIcon}
+        showCount={true}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -684,74 +607,12 @@ export default function ContentGeneratorPage({ category, title, icon: PageIcon, 
         <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-slate-50 to-slate-100/50 dark:from-gray-800 dark:to-gray-900">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Step 1: Select Prompt */}
-            {!selectedPrompt && !searchResults.length && !generatedMessage && prompts.length > 0 && (
-              <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-[2rem] border border-sage-100/50 dark:border-sage-800/30 p-6 shadow-lg animate-fadeIn"
-                   style={{ boxShadow: '0 15px 40px -12px rgba(34, 197, 94, 0.15)' }}>
-                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">
-                  Escolha um Prompt
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  Selecione o estilo do conteúdo que deseja gerar
-                </p>
-
-                <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto">
-                  {prompts.map((prompt) => {
-                    const IconComp = getPromptIcon(prompt.icon)
-                    const colorClass = getPromptColor(prompt.color)
-                    return (
-                      <button
-                        key={prompt.id}
-                        onClick={() => handleSelectPrompt(prompt)}
-                        className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-900 border border-sage-100/50 dark:border-sage-800/30 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:border-sage-300 dark:hover:border-sage-600 hover:bg-sage-50/30 dark:hover:bg-sage-900/20 hover:shadow-sm transition-all duration-200"
-                      >
-                        <div className={`w-7 h-7 ${colorClass} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                          <IconComp className="text-white" size={14} />
-                        </div>
-                        {prompt.name}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div className="flex justify-end mt-3">
-                  <button
-                    onClick={() => router.push(promptsPath)}
-                    className="flex items-center gap-1.5 text-xs text-sage-600 dark:text-sage-400 hover:text-sage-700 dark:hover:text-sage-300 font-medium transition-colors"
-                  >
-                    <Settings size={12} />
-                    Gerenciar
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Search Form (always visible) */}
+            {/* Search Form (always visible) */}
             <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-[2rem] border border-sage-100/50 dark:border-sage-800/30 p-6 shadow-lg animate-fadeIn"
                  style={{ boxShadow: '0 15px 40px -12px rgba(34, 197, 94, 0.15)' }}>
 
-              {/* Selected Prompt Badge */}
-              {selectedPrompt && (
-                <div className="mb-4 flex items-center gap-2">
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${getPromptColor(selectedPrompt.color)} bg-opacity-10 border border-current border-opacity-20`}>
-                    {(() => {
-                      const IconComp = getPromptIcon(selectedPrompt.icon)
-                      return <IconComp size={16} className={`${getPromptColor(selectedPrompt.color).replace('bg-', 'text-')}`} />
-                    })()}
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                      {selectedPrompt.name}
-                    </span>
-                    <button
-                      onClick={handleRemovePrompt}
-                      className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-                    >
-                      <X size={14} className="text-gray-500" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
               <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-                {selectedPrompt ? `Usando: ${selectedPrompt.name}` : 'Qual tema para o conteúdo?'}
+                Qual tema para o conteúdo?
               </h2>
 
               <form onSubmit={handleSearch} className="relative">
@@ -856,8 +717,49 @@ export default function ContentGeneratorPage({ category, title, icon: PageIcon, 
                   ))}
                 </div>
 
-                {/* Generate Button */}
-                <div className="p-4 border-t border-sage-100/50 dark:border-sage-800/30 bg-gray-50/50 dark:bg-gray-800/30">
+                {/* Prompt Selector + Generate Button */}
+                <div className="p-4 border-t border-sage-100/50 dark:border-sage-800/30 bg-gray-50/50 dark:bg-gray-800/30 space-y-3">
+                  {/* Prompt Selection */}
+                  {prompts.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                        Prompt {selectedPrompt ? `— ${selectedPrompt.name}` : '(opcional)'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {prompts.map((prompt) => {
+                          const IconComp = getPromptIcon(prompt.icon)
+                          const colorClass = getPromptColor(prompt.color)
+                          const isSelected = selectedPrompt?.id === prompt.id
+                          return (
+                            <button
+                              key={prompt.id}
+                              onClick={() => isSelected ? handleRemovePrompt() : handleSelectPrompt(prompt)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                                isSelected
+                                  ? 'bg-sage-500 text-white shadow-sage'
+                                  : 'bg-white dark:bg-gray-800 border border-sage-100/50 dark:border-sage-800/30 text-gray-600 dark:text-gray-400 hover:border-sage-300 dark:hover:border-sage-600 hover:bg-sage-50/30 dark:hover:bg-sage-900/20'
+                              }`}
+                            >
+                              <div className={`w-5 h-5 ${isSelected ? 'bg-white/20' : colorClass} rounded-md flex items-center justify-center flex-shrink-0`}>
+                                <IconComp className="text-white" size={11} />
+                              </div>
+                              {prompt.name}
+                              {isSelected && <Check size={14} className="ml-1" />}
+                            </button>
+                          )
+                        })}
+                        <button
+                          onClick={() => router.push(promptsPath)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-sage-500 dark:text-sage-400 hover:bg-sage-50/50 dark:hover:bg-sage-900/20 transition-colors"
+                          title="Gerenciar Prompts"
+                        >
+                          <Settings size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Generate Button */}
                   <button
                     onClick={() => handleGenerate()}
                     disabled={selectedChunks.length === 0 || generating}
@@ -872,7 +774,7 @@ export default function ContentGeneratorPage({ category, title, icon: PageIcon, 
                       <>
                         <span className="text-lg">{selectedAIProvider.icon}</span>
                         <span>
-                          Gerar com {selectedAIProvider.name} ({selectedChunks.length} selecionado{selectedChunks.length > 1 ? 's' : ''})
+                          Gerar{selectedPrompt ? ` (${selectedPrompt.name})` : ''} com {selectedAIProvider.name} ({selectedChunks.length} selecionado{selectedChunks.length > 1 ? 's' : ''})
                         </span>
                       </>
                     )}

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Loader2, Plus, Trash2, MessageSquare, Menu, X, Filter, Leaf } from 'lucide-react'
+import { Send, Loader2, Menu, X, Filter, Leaf } from 'lucide-react'
 import DailyTeachingChatMessage from '@/components/DailyTeachingChatMessage'
+import ConversationSidebar, { SidebarItem } from '@/components/ConversationSidebar'
 import { useChat, type ChatMessage } from '@/hooks/useChat'
 import { useToast } from '@/components/Toast'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 interface Theme {
   id: string
@@ -34,7 +34,6 @@ export default function DailyTeachingChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const { showToast } = useToast()
-  const { confirm } = useConfirm()
 
   const {
     messages,
@@ -91,24 +90,35 @@ export default function DailyTeachingChatPage() {
     setSelectedThemes([])
   }
 
-  const handleDeleteConversation = async (convId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  // ─── Sidebar item mapping ─────────────────────────────────
+  const sidebarItems: SidebarItem[] = conversations.map((conv) => ({
+    id: conv.id,
+    title: conv.title,
+    date: conv.updated_at,
+  }))
 
-    const confirmed = await confirm({
-      title: 'Delete Conversation',
-      message: 'Are you sure you want to delete this conversation? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      variant: 'danger',
-    })
-
-    if (!confirmed) return
-
-    const success = await deleteConversation(convId)
+  const handleSidebarDelete = async (id: string) => {
+    const success = await deleteConversation(id)
     if (success) {
       showToast('Conversation deleted successfully', 'success')
     } else {
       showToast('Failed to delete conversation', 'error')
+    }
+  }
+
+  const handleSidebarRename = async (id: string, newTitle: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle }),
+      })
+      if (!response.ok) throw new Error('Failed to rename')
+      // Refresh conversations list to reflect the change
+      await loadConversations()
+    } catch (error) {
+      console.error('Error renaming conversation:', error)
+      showToast('Failed to rename conversation', 'error')
     }
   }
 
@@ -157,90 +167,25 @@ export default function DailyTeachingChatPage() {
     }
   }
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 7) return `${diffDays} days ago`
-    return date.toLocaleDateString('en-US')
-  }
-
   return (
     <div className="flex h-full">
       {/* Sidebar */}
-      <div
-        className={`
-        ${sidebarOpen ? 'w-72' : 'w-0'}
-        bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-r border-sage-100/50 dark:border-sage-800/30 transition-all duration-300 overflow-hidden flex-shrink-0
-      `}
-      >
-        <div className="flex flex-col h-full w-72">
-          {/* New Chat Button */}
-          <div className="p-4 border-b border-sage-100/50 dark:border-sage-800/30">
-            <button
-              onClick={startNewChat}
-              className="w-full flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-sage-500 to-sage-400 hover:from-sage-600 hover:to-sage-500 text-white rounded-2xl transition-all duration-300 shadow-sage hover:shadow-sage-lg transform hover:-translate-y-0.5"
-            >
-              <Plus size={18} />
-              <span className="font-semibold">New chat</span>
-            </button>
-          </div>
-
-          {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto px-3 py-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">
-              History
-            </p>
-            {loadingConversations ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="animate-spin text-sage-400" size={20} />
-              </div>
-            ) : conversations.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">No conversations yet</div>
-            ) : (
-              <div className="space-y-1">
-                {conversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    onClick={() => loadConversation(conv.id)}
-                    className={`
-                      group flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200
-                      ${
-                        conversationId === conv.id
-                          ? 'bg-gradient-to-r from-sage-500/10 to-sage-400/10 text-sage-700 dark:text-sage-400 border border-sage-200/50 dark:border-sage-700/30'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-sage-50/50 dark:hover:bg-sage-900/20'
-                      }
-                    `}
-                  >
-                    <MessageSquare
-                      size={16}
-                      className={`flex-shrink-0 ${
-                        conversationId === conv.id
-                          ? 'text-sage-600 dark:text-sage-400'
-                          : 'text-gray-400'
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate font-medium">{conv.title}</p>
-                      <p className="text-xs text-gray-400">{formatDate(conv.updated_at)}</p>
-                    </div>
-                    <button
-                      onClick={(e) => handleDeleteConversation(conv.id, e)}
-                      className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200"
-                      title="Delete conversation"
-                    >
-                      <Trash2 size={14} className="text-gray-400 hover:text-red-500" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <ConversationSidebar
+        items={sidebarItems}
+        activeId={conversationId}
+        loading={loadingConversations}
+        onSelect={loadConversation}
+        onDelete={handleSidebarDelete}
+        onNew={startNewChat}
+        onRename={handleSidebarRename}
+        open={sidebarOpen}
+        width="w-72"
+        colorTheme="sage"
+        newButtonText="Nova conversa"
+        searchable={true}
+        groupByDate={true}
+        renamable={true}
+      />
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">

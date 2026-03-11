@@ -113,3 +113,64 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to load messages' }, { status: 500 })
   }
 }
+
+// PATCH - Renomear uma conversa
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 })
+    }
+
+    const { id } = await params
+    const conversationId = id
+
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+
+    const { title } = body
+
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
+      return NextResponse.json({ error: 'Titulo obrigatorio' }, { status: 400 })
+    }
+
+    if (title.trim().length > 100) {
+      return NextResponse.json({ error: 'Titulo muito longo (max 100 caracteres)' }, { status: 400 })
+    }
+
+    // Verificar se a conversa pertence ao usuario
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('id', conversationId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .single()
+
+    if (!conv) {
+      return NextResponse.json({ error: 'Conversa nao encontrada' }, { status: 404 })
+    }
+
+    // Atualizar titulo
+    const { error: updateError } = await supabase
+      .from('conversations')
+      .update({ title: title.trim(), updated_at: new Date().toISOString() })
+      .eq('id', conversationId)
+
+    if (updateError) throw updateError
+
+    return NextResponse.json({ success: true, title: title.trim() })
+  } catch (error) {
+    console.error('Rename conversation error:', error)
+    return NextResponse.json({ error: 'Failed to rename conversation' }, { status: 500 })
+  }
+}
