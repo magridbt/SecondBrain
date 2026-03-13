@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-03-13
+
+### Fixed — Calibração de Thresholds de Busca Semântica
+- **Chat / Clone:** threshold corrigido de `0.35` → `0.65` em todas as rotas de chat
+  - `api/chat/stream/route.ts`
+  - `api/chat/clone/stream/route.ts`
+  - `api/chat/route.ts` (non-streaming)
+  - Limite ajustado de 5 → 7 chunks por consulta
+- **Daily Teaching:** threshold `0.35` → `0.55` em `api/daily-message/search/route.ts`
+- **Explorar/Browse:** threshold `0.35` → `0.50` em `api/search/route.ts` (campo `minSimilarity` também atualizado)
+- **Racional:** threshold 0.35 trazia chunks irrelevantes ao contexto do Claude, degradando qualidade das respostas
+
+### Added — Histórico de Conversa no Context Window
+- Chat SecondBrain e Clone Cognitivo agora incluem as últimas **6 mensagens** (3 pares) no contexto enviado ao Claude
+- Implementado em `api/chat/stream`, `api/chat/clone/stream` e `api/chat` (non-streaming)
+- Rota não-streaming usa `.neq('id', userMessage?.id)` para excluir a mensagem atual já salva antes da chamada de IA
+- `ai-fallback.ts` atualizado com interface `ConversationTurn` e suporte a `conversationHistory` nos três providers (Claude, ChatGPT, Gemini)
+
+### Added — Branding Persistente via Banco de Dados
+- Nova tabela `system_settings` (migration `005_system_settings.sql`)
+- Novo endpoint `GET/PUT /api/system-settings`
+- Admin pode alterar nome do sistema, subtítulo e avatar — configurações persistem para **todos** os usuários
+- `Sidebar.tsx` e `admin/settings/page.tsx` atualizados para ler/escrever no banco (localStorage permanece apenas como cache local)
+
+### Added — Clone Cognitivo com Disclaimer de Transparência
+- Badge discreto "DNA Mental • IA" (ponto roxo pulsante) no header do Clone Cognitivo
+- Tooltip: "Respostas geradas por IA com base no DNA dos ensinamentos de Sri Amma Bhagavan"
+- Footer atualizado: "Baseado no DNA dos ensinamentos de Sri Amma Bhagavan • Respostas geradas por IA"
+
+### Added — Documentação Completa do Projeto
+- `README.md` reescrito com visão geral completa, stack, módulos, pipeline RAG e thresholds
+- `docs/ARCHITECTURE.md` — arquitetura técnica detalhada com diagramas ASCII
+- `docs/API.md` — referência completa de todos os endpoints
+- `docs/ADMIN_GUIDE.md` — guia do administrador (documentos, membros, branding, troubleshooting)
+- `docs/DEVELOPMENT.md` — setup de desenvolvimento e padrões de código
+- `docs/DEPLOYMENT.md` — checklist de deploy, Vercel + Supabase + Upstash
+
+---
+
 ## [1.2.0] - 2026-01-21
 
 ### Added - Multi-Provider AI Support
