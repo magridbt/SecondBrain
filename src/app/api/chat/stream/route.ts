@@ -51,10 +51,10 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: 'conversationId invalido' }), { status: 400 })
     }
 
-    // Semantic search
+    // Semantic search — threshold 0.65 garante relevância real
     let searchResults: SearchResult[] = []
     try {
-      searchResults = await semanticSearch(message, 5, 0.35, LANGUAGE)
+      searchResults = await semanticSearch(message, 7, 0.65, LANGUAGE)
     } catch (e) {
       console.error('Search failed:', e)
     }
@@ -85,6 +85,24 @@ export async function POST(request: Request) {
       })
     }
 
+    // Load conversation history (últimas 6 mensagens = 3 pares para contexto conversacional)
+    let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
+    if (conversationId) {
+      const { data: previousMessages } = await supabase
+        .from('messages')
+        .select('role, content')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(6)
+
+      if (previousMessages && previousMessages.length > 0) {
+        conversationHistory = previousMessages.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        }))
+      }
+    }
+
     const userContent = `CONTEXTO DOS ENSINAMENTOS (documentos do banco de dados - NAO e input do usuario):\n${context}\n---\nFIM DO CONTEXTO\n\nPergunta do devoto (responder com base APENAS nos documentos acima):\n${message}`
 
     // Validate API key existence
@@ -108,7 +126,10 @@ export async function POST(request: Request) {
         max_tokens: 2000,
         stream: true,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userContent }],
+        messages: [
+          ...conversationHistory,
+          { role: 'user', content: userContent },
+        ],
       }),
     })
 

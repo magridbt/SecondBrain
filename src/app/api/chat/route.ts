@@ -88,13 +88,34 @@ export const POST = safeRoute(async (request: Request) => {
     },
   }).catch(err => console.error(`[${traceId}] Audit log error:`, err))
 
-  // 9. Semantic search
+  // 9. Semantic search — threshold 0.65 garante relevância real
   let searchResults: SearchResult[] = []
   try {
-    searchResults = await semanticSearch(message, 5, 0.35, LANGUAGE)
+    searchResults = await semanticSearch(message, 7, 0.65, LANGUAGE)
     console.log(`[${traceId}] Search: ${searchResults.length} results`)
   } catch (searchError) {
     console.error(`[${traceId}] Search failed:`, searchError)
+  }
+
+  // 9b. Load conversation history (exclui a mensagem atual que acabou de ser salva)
+  let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  try {
+    const { data: previousMessages } = await supabase
+      .from('messages')
+      .select('role, content')
+      .eq('conversation_id', convId)
+      .neq('id', userMessage?.id || '')
+      .order('created_at', { ascending: true })
+      .limit(6)
+
+    if (previousMessages && previousMessages.length > 0) {
+      conversationHistory = previousMessages.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }))
+    }
+  } catch {
+    // Continua sem histórico se falhar
   }
 
   // 10. Build context
@@ -142,6 +163,7 @@ export const POST = safeRoute(async (request: Request) => {
     const aiResponse = await callAIWithFallback({
       systemPrompt: SYSTEM_PROMPT,
       userMessage: userContent,
+      conversationHistory,
       maxTokens: 2000,
       userId: user.id,
       endpoint: 'chat',

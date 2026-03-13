@@ -40,12 +40,22 @@ export default function SettingsPage() {
   }, [])
 
   const loadBrandingSettings = async () => {
-    // Carregar configuracoes do localStorage por enquanto
-    // Em producao, isso viria de uma tabela system_settings no Supabase
+    try {
+      const res = await fetch('/api/system-settings')
+      if (res.ok) {
+        const data = await res.json()
+        const settings = data.settings as Record<string, string>
+        if (settings.avatar_url) setAvatarUrl(settings.avatar_url)
+        if (settings.system_name) setSystemName(settings.system_name)
+        if (settings.system_subtitle) setSystemSubtitle(settings.system_subtitle)
+        return
+      }
+    } catch {
+      // Fallback para localStorage
+    }
     const savedAvatar = localStorage.getItem('system_avatar_url')
     const savedName = localStorage.getItem('system_name')
     const savedSubtitle = localStorage.getItem('system_subtitle')
-
     if (savedAvatar) setAvatarUrl(savedAvatar)
     if (savedName) setSystemName(savedName)
     if (savedSubtitle) setSystemSubtitle(savedSubtitle)
@@ -75,7 +85,12 @@ export default function SettingsPage() {
       const publicUrl = urlData.publicUrl + '?t=' + Date.now() // Cache bust
       setAvatarUrl(publicUrl)
       localStorage.setItem('system_avatar_url', publicUrl)
-      // Dispatch custom event to notify Sidebar
+      // Persiste no banco
+      await fetch('/api/system-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_url: publicUrl }),
+      })
       window.dispatchEvent(new Event('brandingUpdated'))
     } catch (error: any) {
       console.error('Error uploading avatar:', error)
@@ -85,22 +100,40 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSaveBranding = () => {
+  const handleSaveBranding = async () => {
     setSavingBranding(true)
-    localStorage.setItem('system_name', systemName)
-    localStorage.setItem('system_subtitle', systemSubtitle)
-    // Dispatch custom event to notify Sidebar
-    window.dispatchEvent(new Event('brandingUpdated'))
-    setTimeout(() => {
+    try {
+      // Persiste no banco (fonte da verdade)
+      const res = await fetch('/api/system-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_name: systemName,
+          system_subtitle: systemSubtitle,
+        }),
+      })
+      if (!res.ok) throw new Error('Erro ao salvar')
+
+      // Atualiza localStorage como cache local
+      localStorage.setItem('system_name', systemName)
+      localStorage.setItem('system_subtitle', systemSubtitle)
+      window.dispatchEvent(new Event('brandingUpdated'))
+      alert('Configurações salvas!')
+    } catch {
+      alert('Erro ao salvar configurações. Tente novamente.')
+    } finally {
       setSavingBranding(false)
-      alert('Settings saved!')
-    }, 500)
+    }
   }
 
-  const handleRemoveAvatar = () => {
+  const handleRemoveAvatar = async () => {
     setAvatarUrl(null)
     localStorage.removeItem('system_avatar_url')
-    // Dispatch custom event to notify Sidebar
+    await fetch('/api/system-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avatar_url: '' }),
+    })
     window.dispatchEvent(new Event('brandingUpdated'))
   }
 

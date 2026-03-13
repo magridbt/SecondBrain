@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Settings, Users, FileText, LogOut, Menu, X, Sun, Moon, Activity, Sparkles, ChevronRight, Share2, Star } from 'lucide-react'
+import { MessageSquare, Settings, Users, FileText, LogOut, Menu, X, Sun, Moon, Activity, Sparkles, ChevronRight, Share2, Star, BookOpen } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -31,7 +31,35 @@ export default function Sidebar({ user, profile }: SidebarProps) {
     const isValidAvatarUrl = (url: string) =>
       url.startsWith('https://') || url.startsWith('/')
 
-    const loadBranding = () => {
+    const loadBranding = async () => {
+      try {
+        // Tenta buscar do banco primeiro (fonte da verdade)
+        const res = await fetch('/api/system-settings').catch(() => null)
+        if (res?.ok) {
+          const data = await res.json()
+          const settings = data.settings as Record<string, string>
+
+          if (settings.avatar_url && isValidAvatarUrl(settings.avatar_url)) {
+            setAvatarUrl(settings.avatar_url)
+            localStorage.setItem('system_avatar_url', settings.avatar_url)
+          } else {
+            setAvatarUrl(null)
+          }
+          if (settings.system_name) {
+            setSystemName(stripHtml(settings.system_name))
+            localStorage.setItem('system_name', settings.system_name)
+          }
+          if (settings.system_subtitle) {
+            setSystemSubtitle(stripHtml(settings.system_subtitle))
+            localStorage.setItem('system_subtitle', settings.system_subtitle)
+          }
+          return
+        }
+      } catch {
+        // Silently fallback to localStorage
+      }
+
+      // Fallback: localStorage (enquanto API não responde)
       try {
         const savedAvatar = localStorage.getItem('system_avatar_url')
         const savedName = localStorage.getItem('system_name')
@@ -196,6 +224,21 @@ export default function Sidebar({ user, profile }: SidebarProps) {
           >
             <Star size={18} className="flex-shrink-0" />
             <span className="text-sm font-medium flex-1 text-left">Milagres</span>
+            <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+          <button
+            onClick={() => {
+              setMobileOpen(false)
+              router.push('/app/cursos')
+            }}
+            className={`mt-1.5 w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-all group ${
+              pathname.startsWith('/app/cursos')
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <BookOpen size={18} className="flex-shrink-0" />
+            <span className="text-sm font-medium flex-1 text-left">Cursos</span>
             <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
         </div>

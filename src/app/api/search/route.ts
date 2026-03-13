@@ -37,8 +37,8 @@ export async function POST(request: Request) {
     // Perform semantic search - NO CLAUDE, JUST RESULTS
     let searchResults: SearchResult[] = []
     try {
-      // Get 12 best results with minimum 35% threshold (industry standard for semantic search)
-      searchResults = await semanticSearch(query, 12, 0.35, LANGUAGE)
+      // Get 12 best results with minimum 50% threshold (browse mode — mais amplo que chat)
+      searchResults = await semanticSearch(query, 12, 0.50, LANGUAGE)
     } catch (searchError) {
       console.error('Semantic search failed')
       // Return empty results if search fails
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
         totalResults: formattedResults.length,
         results: formattedResults,
         mode: 'semantic_search', // Indicate this is pure search, not Claude-processed
-        minSimilarity: '35%', // Indicate minimum threshold applied
+        minSimilarity: '50%', // Indicate minimum threshold applied
       },
       {
         headers: getRateLimitHeaders({ limit, remaining, reset })

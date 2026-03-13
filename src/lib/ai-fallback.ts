@@ -9,9 +9,15 @@ interface AIResponse {
   outputTokens: number
 }
 
+interface ConversationTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 interface AICallParams {
   systemPrompt: string
   userMessage: string
+  conversationHistory?: ConversationTurn[]
   maxTokens?: number
   userId: string
   endpoint?: string
@@ -30,7 +36,10 @@ async function callClaude(params: AICallParams): Promise<AIResponse> {
     model,
     max_tokens: params.maxTokens || 2000,
     system: params.systemPrompt,
-    messages: [{ role: 'user', content: params.userMessage }],
+    messages: [
+      ...(params.conversationHistory || []),
+      { role: 'user', content: params.userMessage },
+    ],
   })
 
   const text = response.content[0].type === 'text' ? response.content[0].text : ''
@@ -60,6 +69,7 @@ async function callChatGPT(params: AICallParams): Promise<AIResponse> {
       max_tokens: params.maxTokens || 2000,
       messages: [
         { role: 'system', content: params.systemPrompt },
+        ...(params.conversationHistory || []),
         { role: 'user', content: params.userMessage },
       ],
     }),

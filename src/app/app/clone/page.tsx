@@ -289,8 +289,9 @@ export default function ClonePage() {
             </div>
           </div>
 
-          <div className="ml-auto flex items-center bg-purple-50 dark:bg-purple-900/20 rounded-lg px-3 py-1.5">
-            <span className="text-xs font-medium text-purple-700 dark:text-purple-400">Clone Ativo</span>
+          <div className="ml-auto flex items-center gap-1.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg px-3 py-1.5" title="Respostas geradas por IA com base no DNA dos ensinamentos de Sri Amma Bhagavan">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-400">DNA Mental • IA</span>
           </div>
         </header>
 
@@ -369,7 +370,7 @@ export default function ClonePage() {
               </button>
             </div>
             <p className="text-xs text-gray-400 text-center mt-2">
-              Respostas geradas como clone cognitivo de Sri Amma Bhagavan baseado em 950+ horas de ensinamentos
+              Baseado no DNA dos ensinamentos de Sri Amma Bhagavan • Respostas geradas por IA
             </p>
           </form>
         </div>

@@ -50,10 +50,10 @@ export async function POST(request: Request) {
       return new Response(JSON.stringify({ error: 'conversationId invalido' }), { status: 400 })
     }
 
-    // Semantic search (RAG as optional enrichment)
+    // Semantic search (RAG como enriquecimento do DNA Mental) — threshold 0.65 = apenas contexto relevante
     let searchResults: SearchResult[] = []
     try {
-      searchResults = await semanticSearch(message, 5, 0.35, LANGUAGE)
+      searchResults = await semanticSearch(message, 7, 0.65, LANGUAGE)
     } catch (e) {
       console.error('Search failed:', e)
     }
@@ -65,6 +65,24 @@ export async function POST(request: Request) {
       searchResults.forEach((result) => {
         context += `\n---\nFonte: ${result.sourceName}\nDocumento: ${result.documentName}\nConteudo:\n${result.content}\n`
       })
+    }
+
+    // Load conversation history (últimas 6 mensagens = 3 pares para memória conversacional)
+    let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
+    if (conversationId) {
+      const { data: previousMessages } = await supabase
+        .from('messages')
+        .select('role, content')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(6)
+
+      if (previousMessages && previousMessages.length > 0) {
+        conversationHistory = previousMessages.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        }))
+      }
     }
 
     // Clone mode: always respond - with or without RAG context
@@ -96,7 +114,10 @@ export async function POST(request: Request) {
         max_tokens: 2000,
         stream: true,
         system: CLONE_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userContent }],
+        messages: [
+          ...conversationHistory,
+          { role: 'user', content: userContent },
+        ],
       }),
     })
 

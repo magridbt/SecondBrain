@@ -17,11 +17,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 })
     }
 
-    // Search for teachings using semantic search in Portuguese only (35% threshold for conceptual matches)
+    // Search for teachings using semantic search in Portuguese only (55% threshold for thematic relevance)
     const finalResults = await semanticSearch(
       topic,
       Math.min(limit, 20), // Cap at 20 results
-      0.35,
+      0.55,
       'pt' // Portuguese only
     )
 
