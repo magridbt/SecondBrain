@@ -160,7 +160,24 @@ Módulo de geração de "miracles" — textos inspiracionais ou relatos de graç
 
 ---
 
-## 8. Painel Admin
+## 8. Visualizador de Documento
+
+**Rota:** `/app/document/[id]`
+
+Página de visualização de um documento individual da base de conhecimento.
+
+**Funcionalidades:**
+- Exibe nome, metadados e conteúdo completo do documento por chunks
+- Suporte a `?highlight=texto` para destacar termos na página
+- Suporte a `?chunk=id` para navegar diretamente a um chunk específico
+- Link de download do arquivo original (PDF/DOCX)
+- Paginação de chunks para documentos longos
+
+**Acesso:** Qualquer usuário autenticado.
+
+---
+
+## 9. Painel Admin
 
 **Rota:** `/app/admin/*`
 **Acesso:** Usuários com `role = 'admin'`
@@ -175,6 +192,14 @@ Ver [docs/ADMIN_GUIDE.md](ADMIN_GUIDE.md) para guia completo.
 | `/app/admin/audit` | Logs de auditoria e conteúdo sinalizado |
 | `/app/admin/history` | Histórico de todas as conversas |
 | `/app/admin/settings` | Branding (nome, subtítulo, avatar) e fontes de ensinamentos |
+
+---
+
+## Páginas de Sistema
+
+**`/app` (raiz)** — Redireciona automaticamente para `/app/chat`.
+
+**`/app/no-access`** — Página exibida quando um usuário autenticado tenta acessar um módulo ou rota sem permissão. Exibe mensagem de acesso negado e link para voltar.
 
 ---
 

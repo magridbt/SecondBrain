@@ -14,7 +14,7 @@ O sistema oferece sete módulos de interação com os ensinamentos:
 |--------|------|-----------|
 | **SecondBrain** | `/app/chat` | Chat RAG estrito — responde APENAS com base nos documentos indexados |
 | **Clone Cognitivo** | `/app/clone` | Chat com DNA Mental — responde como Sri Amma Bhagavan mesmo sem documentos |
-| **Explorar** | `/app/explore` | Busca semântica pura — retorna chunks mais relevantes sem geração de IA |
+| **Explorar** | `/app/explore` | Busca semântica pura — retorna chunks mais relevantes sem geração de IA (UI implementada) |
 | **Mensagem Diária** | `/app/daily-teaching` | Gera mensagens temáticas para divulgação baseadas nos ensinamentos |
 | **Cursos** | `/app/cursos` | Produção de conteúdo para cursos (Dádiva de Ananda, 81000 Deeksha Yajna, etc.) |
 | **Redes Sociais** | `/app/social-media` | Geração de conteúdo para 8 redes (YouTube, Instagram, TikTok, etc.) |

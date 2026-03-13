@@ -127,8 +127,8 @@ Busca ensinamentos por tema para geração de mensagem diária.
 
 ---
 
-### POST /api/daily-message/generate
-Gera mensagem diária baseada em tema + ensinamentos encontrados.
+### POST /api/daily-message/generate/stream
+Gera mensagem diária baseada em tema + ensinamentos encontrados (streaming SSE).
 
 **Body:**
 ```json
@@ -136,21 +136,16 @@ Gera mensagem diária baseada em tema + ensinamentos encontrados.
   "topic": "despertar",
   "language": "pt",
   "provider": "claude",
-  "promptId": "uuid" // opcional — usa prompt customizado
+  "promptId": "uuid"
 }
 ```
 
-**Response:** `text/event-stream` (streaming SSE)
+**Response:** `text/event-stream`
 ```
 data: {"type":"token","content":"Querido "}
 ...
 data: {"type":"done"}
 ```
-
----
-
-### POST /api/daily-message/generate/stream
-Alias streaming para geração de mensagem diária. Mesmo comportamento do anterior.
 
 ---
 
@@ -435,6 +430,13 @@ Health check (não requer auth).
 Testa conectividade de um provider de IA.
 
 **Query:** `?provider=claude&apiKey=your_api_key`
+
+### GET /api/cron/update-system-file
+Atualiza SystemFile via Coda.io. Chamado automaticamente pelo Vercel Cron.
+
+**Auth:** Header `Authorization: Bearer {CRON_SECRET}` ou sessão admin.
+
+**Uso:** Sincroniza dados do Coda.io (`CODA_API_TOKEN` + `CODA_DOC_ID`) com o sistema. Opcional — apenas se integração com Coda estiver configurada.
 
 ---
 
