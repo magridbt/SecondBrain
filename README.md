@@ -8,14 +8,19 @@ Plataforma RAG (Retrieval-Augmented Generation) completa para busca, consulta e 
 
 ## Visão Geral
 
-O sistema oferece quatro modos de interação com os ensinamentos:
+O sistema oferece sete módulos de interação com os ensinamentos:
 
-| Módulo | Descrição | IA |
-|--------|-----------|-----|
-| **SecondBrain** | Chat RAG estrito — responde APENAS com base nos documentos indexados | Claude claude-sonnet-4-20250514 (SSE streaming) |
-| **Clone Cognitivo** | Chat com DNA Mental — responde como Sri Amma Bhagavan mesmo sem documentos | Claude claude-sonnet-4-20250514 (SSE streaming) |
-| **Explorar** | Busca semântica pura — retorna os chunks mais relevantes sem processar com IA | Voyage AI apenas |
-| **Mensagem Diária** | Gera mensagens temáticas para divulgação baseadas nos ensinamentos | Claude / ChatGPT / Gemini (fallback chain) |
+| Módulo | Rota | Descrição |
+|--------|------|-----------|
+| **SecondBrain** | `/app/chat` | Chat RAG estrito — responde APENAS com base nos documentos indexados |
+| **Clone Cognitivo** | `/app/clone` | Chat com DNA Mental — responde como Sri Amma Bhagavan mesmo sem documentos |
+| **Explorar** | `/app/explore` | Busca semântica pura — retorna chunks mais relevantes sem geração de IA |
+| **Mensagem Diária** | `/app/daily-teaching` | Gera mensagens temáticas para divulgação baseadas nos ensinamentos |
+| **Cursos** | `/app/cursos` | Produção de conteúdo para cursos (Dádiva de Ananda, 81000 Deeksha Yajna, etc.) |
+| **Redes Sociais** | `/app/social-media` | Geração de conteúdo para 8 redes (YouTube, Instagram, TikTok, etc.) |
+| **Milagres** | `/app/milagres` | Geração de textos inspiracionais baseados nos ensinamentos |
+
+Ver [docs/MODULES.md](docs/MODULES.md) para descrição detalhada de cada módulo.
 
 ---
 
@@ -205,11 +210,13 @@ Ver [docs/CHANGELOG.md](docs/CHANGELOG.md) para histórico completo.
 
 ## Documentação
 
+- [docs/MODULES.md](docs/MODULES.md) — Descrição detalhada de todos os módulos
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Arquitetura técnica completa
 - [docs/API.md](docs/API.md) — Referência de todos os endpoints
 - [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) — Guia do administrador
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — Setup de desenvolvimento
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — Deploy em produção
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — Histórico de versões
 
 ---
 
