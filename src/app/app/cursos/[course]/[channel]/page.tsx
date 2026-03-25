@@ -8,6 +8,7 @@ import {
   Mail,
   Instagram,
   Youtube,
+  Megaphone,
   Loader2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -29,6 +30,7 @@ const CHANNEL_CONFIG: Record<string, ChannelConfig> = {
   email: { name: 'Email Marketing', icon: Mail },
   instagram: { name: 'Instagram', icon: Instagram },
   youtube: { name: 'YouTube', icon: Youtube },
+  'trafego-pago': { name: 'Tráfego Pago', icon: Megaphone },
 }
 
 export default function CursoChannelPage() {

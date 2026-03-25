@@ -12,6 +12,7 @@ import {
   Mail,
   Instagram,
   Youtube,
+  Megaphone,
   ArrowLeft,
   ArrowRight,
   Loader2,
@@ -67,6 +68,13 @@ const CHANNELS: Channel[] = [
     icon: Youtube,
     gradient: 'from-red-500 to-red-600',
     description: 'Scripts, títulos, descrições e thumbnails',
+  },
+  {
+    slug: 'trafego-pago',
+    name: 'Tráfego Pago',
+    icon: Megaphone,
+    gradient: 'from-amber-500 to-orange-600',
+    description: 'Copys para anúncios, criativos e campanhas pagas',
   },
 ]
 

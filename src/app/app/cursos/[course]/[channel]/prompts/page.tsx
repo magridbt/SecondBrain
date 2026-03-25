@@ -17,6 +17,7 @@ const VALID_CHANNELS: Record<string, string> = {
   email: 'Email Marketing',
   instagram: 'Instagram',
   youtube: 'YouTube',
+  'trafego-pago': 'Tráfego Pago',
 }
 
 export default function CursoChannelPromptsPage() {
